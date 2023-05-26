@@ -1,4 +1,11 @@
-# Welcome to your organization's demo respository
-This code repository (or "repo") is designed to demonstrate the best GitHub has to offer with the least amount of noise.
+# CALYPSO kit
 
-The repo includes an `index.html` file (so it can render a web page), two GitHub Actions workflows, and a CSS stylesheet dependency.
+This repository maintains toolkit for CALYPSO structure prediction software.
+
+## How does this repo organized?
+
+- calypsokit/analysis
+    analysis structures
+    - validity.py
+        structure validity
+
