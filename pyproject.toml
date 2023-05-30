@@ -3,23 +3,26 @@ requires = ["setuptools>=45", "setuptools-scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-    name = "***"
+    name = "calypsokit"
     dynamic = ["version"]
     description = ""
     authors = [
-        {name = "***", email = "***"},
+        {name = "Xiaoshan Luo", email = "luoxs@calypso.cn"},
+        {name = "Zhenyu Wang", email = "wzy@calypso.cn"},
     ]
     dependencies = [
+        "numpy",
+        "pymongo",
+        "python-dotenv",
     ]
     requires-python = ">=3.7.4"
     readme = "README.md"
     license = {text = ""}
     maintainers = [
-        {name = "***", email = "***"},
     ]
     keywords = []
     classifiers = [
-        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.11",
         "Operating System :: POSIX :: Linux",
     ]
 
@@ -35,17 +38,17 @@ build-backend = "setuptools.build_meta"
     ]
 
 [project.urls]
-    homepage = "***"
+    # homepage = "***"
     # repository = ""
     # documentation = ""
 
 [project.scripts]
 
 [tool.setuptools]
-    packages = ["***"]
+    packages = ["calypsokit"]
 
 [tool.setuptools_scm]
-    write_to = "***/_version.py"
+    write_to = "calypsokit/_version.py"
 
 [tool.black]
     skip-string-normalization = true
