@@ -1,11 +1,13 @@
 import os
+import pickle
 import sys
 import unittest
+from pprint import pprint
 
-import pickle
 import numpy as np
 import pandas as pd
-from calypsokit.calydb.calydb import biser, bideser, connect_to_db, RawDocDict
+
+from calypsokit.calydb.calydb import RawDocDict, bideser, biser, connect_to_db
 
 
 class TestCalyDB(unittest.TestCase):
@@ -32,8 +34,8 @@ class TestCalyDB(unittest.TestCase):
 
     def test_03_RawDocDict(self):
         rawdocdict = RawDocDict()
-        rawdocdict = RawDocDict.fromSeries(pd.Series({"material_id": "debug-01"}))
-        print(rawdocdict)
+        rawdocdict = RawDocDict(pd.Series({"material_id": "debug-01"}))
+        pprint(rawdocdict)
         pass
 
 
