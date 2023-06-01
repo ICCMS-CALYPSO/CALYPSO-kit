@@ -12,6 +12,7 @@ build-backend = "setuptools.build_meta"
     ]
     dependencies = [
         "numpy",
+        "pandas",
         "pymongo",
         "python-dotenv",
     ]
