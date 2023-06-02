@@ -1,22 +1,18 @@
-import time
-import os
-import pickle
-import sys
 import unittest
 from pprint import pprint
 from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 from pymongo.errors import DuplicateKeyError
 
-from calypsokit.calydb.calydb import RawDocDict, connect_to_db
+from calypsokit.calydb.login import login
+from calypsokit.calydb.record import RawDocDict
 
 
 class TestCalyDB(unittest.TestCase):
     # WARNING! Never change this debugcollection
-    db, col = connect_to_db(col="debugcol")
+    db, col = login(col="debugcol")
 
     def setUp(self):
         self.col.delete_many({})
