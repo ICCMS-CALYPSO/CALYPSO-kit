@@ -2,14 +2,47 @@ import os
 import pickle
 import warnings
 from collections import UserDict
-from copy import deepcopy
 from time import localtime, strftime
 
 import dotenv
 import numpy as np
 import pandas as pd
 import pymongo
-from bson import Binary, ObjectId
+from bson import Binary
+from bson.binary import USER_DEFINED_SUBTYPE
+from bson.codec_options import TypeCodec, TypeRegistry, CodecOptions
+
+
+# =========== Registor Numpy Type ==========
+class NumpyCodec(TypeCodec):
+    python_type = np.ndarray
+    bson_type = Binary
+
+    def transform_python(self, value):
+        return Binary(pickle.dumps(value, protocol=2), USER_DEFINED_SUBTYPE)
+
+    def transform_bson(self, value):
+        if value.subtype == USER_DEFINED_SUBTYPE:
+            return pickle.loads(value)
+        return value
+
+
+def fallback_encoder(value):
+    if isinstance(value, np.ndarray):
+        return Binary(pickle.dumps(value, protocol=2), USER_DEFINED_SUBTYPE)
+    return value
+
+
+def get_codec_options():
+    numpy_codec = NumpyCodec()
+    type_registry = TypeRegistry([numpy_codec], fallback_encoder=fallback_encoder)
+    codec_options = CodecOptions(type_registry=type_registry, tz_aware=False)
+    return codec_options
+
+
+def get_collection(name, db):
+    codec_options = get_codec_options()
+    return db.get_collection(name, codec_options=codec_options)
 
 
 def connect_to_db(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path=None):
@@ -25,7 +58,7 @@ def connect_to_db(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path
 
     client = pymongo.MongoClient(f"mongodb://{user}:{pwd}@{addr}")
     db = client[db]
-    col = db[col]
+    col = get_collection(col, db)
 
     all_index = col.index_information()
     if all_index.get("material_id", False):
@@ -36,28 +69,12 @@ def connect_to_db(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path
     return db, col
 
 
-def biser(ar):
-    """binary serialization"""
-    bar = Binary(pickle.dumps(ar, protocol=2), subtype=128)
-    return bar
-
-
-def bideser(bar):
-    """binary deserialization"""
-    ar = pickle.loads(bar)
-    return ar
-
-
 class DocDict(UserDict):
     def update_time(self):
         self.data["last_update"] = strftime("%d/%M/%Y %H:%M:%S %z", localtime())
 
     def todb(self):
-        data = deepcopy(self.data)
-        for key, value in data.items():
-            if isinstance(value, np.ndarray):
-                data[key] = biser(value)
-        return data
+        return self.data
 
 
 class RawDocDict(DocDict):
