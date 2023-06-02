@@ -26,6 +26,13 @@ def connect_to_db(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path
     client = pymongo.MongoClient(f"mongodb://{user}:{pwd}@{addr}")
     db = client[db]
     col = db[col]
+
+    all_index = col.index_information()
+    if all_index.get("material_id", False):
+        col.ensure_index([("material_id", 1)], unique=True)
+    else:
+        col.create_index([("material_id", 1)], unique=True)
+
     return db, col
 
 

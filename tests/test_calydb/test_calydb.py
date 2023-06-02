@@ -6,6 +6,8 @@ from pprint import pprint
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+from pymongo.errors import DuplicateKeyError
 
 from calypsokit.calydb.calydb import RawDocDict, bideser, biser, connect_to_db
 
@@ -32,10 +34,15 @@ class TestCalyDB(unittest.TestCase):
         self.assertIsNotNone(record)
         self.assertTrue(np.allclose(bideser(record["ndarray"]), ar))
 
-    def test_03_RawDocDict(self):
+    def test_03_duplicate_error(self):
+        doc = {"material_id": "debug-01"}
+        self.col.insert_one(doc)
+        self.assertRaises(DuplicateKeyError, self.col.insert_one, doc)
+
+    def test_04_RawDocDict(self):
         rawdocdict = RawDocDict()
         rawdocdict = RawDocDict(pd.Series({"material_id": "debug-01"}))
-        pprint(rawdocdict)
+        # pprint(rawdocdict)
         pass
 
 
