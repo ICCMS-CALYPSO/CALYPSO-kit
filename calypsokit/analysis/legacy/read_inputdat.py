@@ -17,6 +17,7 @@
 @Author   : Xiaoshan Luo <luoxs@calypso.cn>
 @Date     : 2021/12/19
 '''
+from io import StringIO
 
 import numpy as np
 from ase.data import atomic_names, atomic_numbers
@@ -185,76 +186,103 @@ def SplitBlock(key, block, parms):
         return list(block)
 
 
+def old_distanceofion_patch(val):
+    # 11
+    # 11 22 12
+    # 11 22 33 12 13 23
+    val = val.strip().split()
+    if len(val) == 1:
+        val = np.array([[float(val)]])
+    elif len(val) == 3:
+        val = np.array(
+            [
+                [float(val[0]), float(val[2])],
+                [float(val[2]), float(val[1])],
+            ]
+        )
+    elif len(val) == 6:
+        val = np.array(
+            [
+                [float(val[0]), float(val[3]), float(val[4])],
+                [float(val[3]), float(val[1]), float(val[5])],
+                [float(val[4]), float(val[5]), float(val[2])],
+            ]
+        )
+    else:
+        raise ValueError("DistanceOfIon Error: more than three element in old version")
+    return val
+
+
 # type transform and default value
 key_func_map = {
     # basic keys
-    'systemname': (str, 'CALYPSO'),
-    'numberofspecies': (int, []),
-    'nameofatoms': (SplitLine(str), []),
-    'numberofatoms': (SplitLine(int), []),
-    'numberofformula': (SplitLine(int), []),
-    'volume': (SplitLine(float), []),
+    'command': (str, 'submit.sh'),
     'distanceofion': (SplitBlock, 0.7),  # !!!!
     'ialgo': (int, 2),
     'icode': (int, 1),
-    'numberoflocaloptim': (int, 4),
-    'psoratio': (float, 0.6),
-    'popsize': (int, 30),
     'kgrid': (SplitLine(float), (0.12, 0.06)),
-    'command': (str, 'submit.sh'),
+    'lmc': (LogicLine(), False),
     'maxstep': (int, 50),
+    'maxtime': (float, 7200.0),
+    'nameofatoms': (SplitLine(str), []),
+    'numberofatoms': (SplitLine(int), []),
+    'numberofformula': (SplitLine(int), []),
+    'numberoflocaloptim': (int, 4),
+    'numberofspecies': (int, []),
     'pickup': (LogicLine(), False),
     'pickupstep': (int, None),
-    'maxtime': (float, 7200.0),
-    'lmc': (LogicLine(), False),
+    'popsize': (int, 30),
+    'psoratio': (float, 0.6),
+    'systemname': (str, 'CALYPSO'),
+    'volume': (SplitLine(float), []),
     # 2d layers
     '2d': (LogicLine(), False),
-    'lfilm': (LogicLine(), False),
-    'thickness': (float, None),
     'area': (float, 0.0),
-    'multilayer': (int, 1),
     'deltaz': (float, 0.2),
-    'layergap': (float, 5.0),
-    'vacuumgap': (float, 10.0),
-    'layertype': (SplitBlock, None),  # !!!!
     'latom_dis': (float, 1.0),
+    'layergap': (float, 5.0),
+    'layertype': (SplitBlock, None),  # !!!!
+    'lfilm': (LogicLine(), False),
+    'multilayer': (int, 1),
+    'thickness': (float, None),
+    'vacuumgap': (float, 10.0),
     # cluster
     'cluster': (LogicLine(), False),
     'vacancy': (SplitLine(float), (10.0, 10.0, 10.0)),
     # rigid molecular
-    'mol': (LogicLine(), False),
-    'numberoftypemolecule': (int, None),
-    'numberofmolecule': (SplitLine(int), None),
     'distofmol': (float, 1.5),
+    'mol': (LogicLine(), False),
+    'numberofmolecule': (SplitLine(int), None),
+    'numberoftypemolecule': (int, None),
     # variational stoichiometry
-    'vsc': (LogicLine(), False),
-    'maxnumatom': (int, 20),
     'ctrlrange': (SplitBlock, None),  # !!!!
+    'maxnumatom': (int, 20),
+    'vsc': (LogicLine(), False),
     # surface reconstruction
+    'capbondswithh': (LogicLine(), True),
+    'ciffilepath': (str, None),
+    'ecr': (LogicLine(), False),
     'lsurface': (LogicLine(), False),
-    'surfacethickness': (float, 3.0),
+    'matrixnotation': (SplitBlock, None),  # !!!!
+    'millerindex': (SplitLine(int), None),
+    'numrelaxedlayers': (int, 2),
+    'slabnumlayers': (int, 6),
+    'slabtopmost': (SplitLine(str), ['CALYPSO']),
+    'slabvaccumthick': (float, 10),
+    'spacesaving': (LogicLine(), True),
     'substrate': (str, 'SUBSTRATE.surf'),
     'surface_atoms': (SplitBlock, None),  # !!!!
-    'spacesaving': (LogicLine(), True),
-    'ecr': (LogicLine(), False),
-    'ciffilepath': (str, None),
-    'millerindex': (SplitLine(int), None),
-    'matrixnotation': (SplitBlock, None),  # !!!!
-    'slabvaccumthick': (float, 10),
-    'slabtopmost': (SplitLine(str), ['CALYPSO']),
-    'slabnumlayers': (int, 6),
-    'numrelaxedlayers': (int, 2),
-    'capbondswithh': (LogicLine(), True),
+    'surfacethickness': (float, 3.0),
     # solid-solid interface
-    'linterface': (LogicLine(), False),
-    'interfacetranslation': (str, False),
-    'translationlimita': (float, 0.0),
-    'translationlimitb': (float, 0.0),
-    'rand_scheme': (int, 1),
-    'interface_thickness': (float, None),
+    'coordinate_number': (SplitBlock, None),  # !!!!
     'forbi_thickness': (float, 0.2),
     'interface_atoms': (SplitBlock, None),  # !!!!
-    'coordinate_number': (SplitBlock, None),  # !!!!
+    'interface_thickness': (float, None),
+    'interfacetranslation': (str, False),
+    'linterface': (LogicLine(), False),
+    'rand_scheme': (int, 1),
+    'translationlimita': (float, 0.0),
+    'translationlimitb': (float, 0.0),
     # substrate
     'substrate2': (str, 'SUBSTRATE2.surf'),
     'twin_interface': (int, 0),
@@ -271,12 +299,15 @@ key_func_map = {
 }
 
 
-def readinput(input='input.dat'):
+def readinput(input='input.dat', input_str=None):
     parms = {u: v[1] for u, v in key_func_map.items()}
     parms_number = {}
 
-    with open(input, 'r') as f:
-        ini_file = f.readlines()
+    if input_str is None:
+        with open(input, 'r') as f:
+            ini_file = f.readlines()
+    else:
+        ini_file = StringIO(input_str).readlines()
     lines = list(map(lambda line: line.strip(), ini_file))
     for num, line in enumerate(lines):
         # empty line
@@ -288,14 +319,20 @@ def readinput(input='input.dat'):
         # single line parameter
         elif '=' in line:
             key, val = singleline(line)
-            try:
-                func = key_func_map[key][0]
-            except KeyError:  # Not a single line parameter or unknown key
-                continue
-            try:  # Indeed a single line parameter
-                val = func(val)
-            except ValueError as e:
-                raise ValueError('Line %i of %s: %s' % (num, input, e))
+            if key == "distanceofion":
+                val = old_distanceofion_patch(val)
+            else:
+                try:
+                    func = key_func_map[key][0]
+                except KeyError:  # Not a single line parameter or unknown key
+                    continue
+                try:  # Indeed a single line parameter
+                    val = func(val)
+                except ValueError as e:
+                    raise ValueError('Line %i of %s: %s' % (num, input, e))
+                except Exception:
+                    # Other error line
+                    continue
             parms[key] = val
             parms_number[key] = num
 
