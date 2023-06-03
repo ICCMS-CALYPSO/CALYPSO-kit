@@ -19,10 +19,14 @@ class RecordDict(BaseRecordDict):
         super().__init__(initdata)
         default_data = {
             "material_id":              "",     # str
+            "source": {
+                "name": "calypso",      # calypso or materials project, etc.
+                "index": 0,             # int index in this source, or None
+            },
             "elements":                 [],     # list of str
             "nelements":                0,      # int
-            "formula":                  "",     # str, metal order，金属-非金属（字母顺序）
-            "reduced_formula":          "",     # str, metal order，金属-非金属（字母顺序）
+            "formula":                  "",     # str, metal and alphabet order
+            "reduced_formula":          "",     # str, metal and alphabet order
             "natoms":                   0,      # int
             "cell":                     np.zeros([3, 3]),  # np.ndarray, angstrom
             "positions":                np.zeros([0, 3]),  # np.ndarray, angstrom
@@ -37,6 +41,11 @@ class RecordDict(BaseRecordDict):
             "clospack_volume_per_atom": 0.0,    # float, A^3
             "clospack_density":         0.0,    # float, g/(mol*A^3)->g/cm^3
             "pressure":                 0.0,    # float, GPa
+            "pressure_range": {             # each pressure is set to a bin
+                "mid":          "0.0",      # starts=-0.1, width=0.2
+                "length":       "0.2",      # e.g. 10 -> (-9.9, 10.1]
+                "closed":       "right"     # default left-open right-closed
+            },                              # for group structures
 
             "trajectory": {
                 "nframes":                  0,      # int
@@ -47,31 +56,24 @@ class RecordDict(BaseRecordDict):
                 "volume":                   [],     # np.ndarray, A^3
                 "enthalpy":                 [],     # np.ndarray, eV
                 "enthalpy_per_atom":        [],     # np.ndarray, eV
+                "source":                   [],     # source path of each frame
+                "source_idx":               [],     # index in each source
             },
 
             "calyconfig": {
                 "version": "",
                 "icode": 0,
             },
-            "abinitconfig":             [],   # list of str，不要替换换行符
+            "dftconfig":                [],   # list of str，不要替换换行符
             "pseudopotential":          [],   # list of str，与elements对应
             "symmetry": {
-                "1e-1": {                       # str, symprec, %.0e
-                    "number":         0,        # int [1, 230]
-                    "symbol":         "",
-                    "crystal_system": "",
-                },
-                "1e-2": {                       # str, symprec, %.0e
-                    "number":         0,        # int [1, 230]
-                    "symbol":         "",
-                    "crystal_system": "",
-                },
+                # symprec(str %.0e)
+                #        int[1, 230] str ("F m -3 m")
+                "1e-1": {"number": 0, "symbol": ""},
+                "1e-2": {"number": 0, "symbol": ""},
+                "1e-5": {"number": 0, "symbol": ""},
             },
-
-            "donator": {
-                "name": "",
-                "email": "",
-            },
+            "donator": {"name": "", "email": ""},
             "deprecated":               False,  # bool
             "deprecated_reason":        "",     # str
         }  # fmt: skip
