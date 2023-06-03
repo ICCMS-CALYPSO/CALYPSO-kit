@@ -7,7 +7,7 @@ import pandas as pd
 from pymongo.errors import DuplicateKeyError
 
 from calypsokit.calydb.login import login
-from calypsokit.calydb.record import RawDocDict
+from calypsokit.calydb.record import RecordDict
 
 
 class TestCalyDB(unittest.TestCase):
@@ -26,7 +26,7 @@ class TestCalyDB(unittest.TestCase):
 
     def test_02_insert_ndarray(self):
         ar = np.random.rand(3, 2)
-        doc = {"material_id": "debug-01", "ndarray": {"1": ar}}
+        doc = {"material_id": "debug-01", "ndarray": {"1": ar}, "abc": None}
         self.col.insert_one(doc)
         record = self.col.find_one({"material_id": "debug-01"})
         self.assertIsNotNone(record)
@@ -48,9 +48,8 @@ class TestCalyDB(unittest.TestCase):
 
     def test_05_RawDocDict(self):
         return
-        rawdocdict = RawDocDict()
-        rawdocdict = RawDocDict(pd.Series({"material_id": "debug-01"}))
-        pprint(rawdocdict)
+        _ = RecordDict(pd.Series({"material_id": "debug-01"}))
+        pprint(_)
 
 
 def main():

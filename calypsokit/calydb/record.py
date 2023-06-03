@@ -47,12 +47,11 @@ class RecordDict(BaseRecordDict):
                 "volume":                   [],     # np.ndarray, A^3
                 "enthalpy":                 [],     # np.ndarray, eV
                 "enthalpy_per_atom":        [],     # np.ndarray, eV
-                "density":                  [],     # np.ndarray, g/(mol*A^3)->g/cm^3
             },
 
             "calyconfig": {
                 "version": "",
-                "ICODE": 0,
+                "icode": 0,
             },
             "abinitconfig":             [],   # list of str，不要替换换行符
             "pseudopotential":          [],   # list of str，与elements对应
