@@ -12,6 +12,7 @@ build-backend = "setuptools.build_meta"
     ]
     dependencies = [
         "ase",
+        "joblib",
         "numpy",
         "pandas",
         "pyarrow",

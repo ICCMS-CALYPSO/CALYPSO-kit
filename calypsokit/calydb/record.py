@@ -79,16 +79,13 @@ class RecordDict(BaseRecordDict):
         }  # fmt: skip
         default_data.update(self.data)
         self.data = default_data
-        try:
-            self.check()
-        except AssertionError as e:
-            warnings.warn(str(e))
+        self.check()
 
     def check(self):
         assert (
             len(self.data["elements"])
             == self.data["nelements"]
-            == len(self.data["potcar"])
+            == len(self.data["pseudopotential"])
         ), "nelements not match"
         assert (
             self.data["natoms"]
@@ -108,7 +105,6 @@ class RecordDict(BaseRecordDict):
             == len(self.data["trajectory"]["volume"])
             == len(self.data["trajectory"]["enthalpy"])
             == len(self.data["trajectory"]["enthalpy_per_atom"])
-            == len(self.data["trajectory"]["density"])
         ), "nframes not match"
 
     @classmethod

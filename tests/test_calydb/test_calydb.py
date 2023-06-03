@@ -1,6 +1,6 @@
 import unittest
-from pprint import pprint
 from datetime import datetime, timedelta
+from pprint import pprint
 
 import numpy as np
 import pandas as pd
@@ -47,9 +47,8 @@ class TestCalyDB(unittest.TestCase):
         )
 
     def test_05_RawDocDict(self):
-        return
-        _ = RecordDict(pd.Series({"material_id": "debug-01"}))
-        pprint(_)
+        record = RecordDict()
+        self.col.insert_one(record)
 
 
 def main():
