@@ -46,12 +46,16 @@ def legacydata_to_record_one(calyidx, data_file):
         if data["pseudopotential"][0] == "NotFound":
             data["pseudopotential"] = [None] * data["nelements"]
         data["pseudopotential"] = data["pseudopotential"][: data["nelements"]]
-        if "layertype" in data["calyconfig"]:
+        if ("layertype" in data["calyconfig"]) and (
+            data["calyconfig"]["layertype"] is not None
+        ):
             data["calyconfig"]["layertype"] = [
                 {u: int(v) for u, v in layer.items()}
                 for layer in data["calyconfig"]["layertype"]
             ]
-        elif "ctrlrange" in data["calyconfig"]:
+        elif ("ctrlrange" in data["calyconfig"]) and (
+            data["calyconfig"]["ctrlrange"] is not None
+        ):
             data["calyconfig"]["ctrlrange"] = {
                 u: [int(i) for i in v]
                 for u, v in data["calyconfig"]["ctrlrange"].items()
@@ -64,74 +68,6 @@ def legacydata_to_record_one(calyidx, data_file):
         record["calyconfig"].pop("ctrlrange")
         col.insert_one(record)
     # return record
-
-
-# {
-#     'version': 'v.5.0',
-#     'systemname': 'LiP',
-#     'numberofspecies': 2,
-#     'nameofatoms': ['Li', 'P'],
-#     'numberofatoms': [5, 1],
-#     'numberofformula': [2, 2],
-#     'volume': [0.0],
-#     'distanceofion': array([[0.8, 0.8], [0.8, 0.8]]),
-#     'ialgo': 2,
-#     'icode': 1,
-#     'numberoflocaloptim': 3,
-#     'psoratio': 0.6,
-#     'popsize': 30,
-#     'kgrid': (0.12, 0.06),
-#     'command': 'sh submit.sh',
-#     'maxstep': 50,
-#     'pickup': False,
-#     'pickupstep': None,
-#     'maxtime': 7200.0,
-#     'lmc': False,
-#     '2d': False,
-#     'lfilm': False,
-#     'thickness': None,
-#     'area': 10.0,
-#     'multilayer': 3,
-#     'deltaz': 0.0,
-#     'layergap': 2.0,
-#     'vacuumgap': 40.0,
-#     'layertype': [{'Li': 1, 'P': 1}, {'Li': 0, 'P': 0}, {'Li': 0, 'P': 0}],
-#     'latom_dis': 1.4,
-#     'cluster': False,
-#     'vacancy': (10.0, 10.0, 10.0),
-#     'mol': False,
-#     'numberoftypemolecule': None,
-#     'numberofmolecule': None,
-#     'distofmol': 1.5,
-#     'vsc': False,
-#     'maxnumatom': 20,
-#     'ctrlrange': None,
-#     'lsurface': False,
-#     'surfacethickness': 3.0,
-#     'substrate': 'SUBSTRATE.surf',
-#     'surface_atoms': None,
-#     'spacesaving': True,
-#     'ecr': False,
-#     'ciffilepath': None,
-#     'millerindex': None,
-#     'matrixnotation': None,
-#     'slabvaccumthick': 10,
-#     'slabtopmost': ['CALYPSO'],
-#     'slabnumlayers': 6,
-#     'numrelaxedlayers': 2,
-#     'capbondswithh': True,
-#     'linterface': False,
-#     'interfacetranslation': False,
-#     'translationlimita': 0.0,
-#     'translationlimitb': 0.0,
-#     'rand_scheme': 1,
-#     'interface_thickness': None,
-#     'forbi_thickness': 0.2,
-#     'interface_atoms': None,
-#     'coordinate_number': None,
-#     'substrate2': 'SUBSTRATE2.surf',
-#     'twin_interface': 0,
-# }
 
 
 def legacydata_to_record(pkl_list, currentmaxcalyidx):
@@ -149,8 +85,16 @@ def wrapper_legacydata_to_record(pkl_folder):
     print(currentmaxcalyidx)
     pkl_list = [str(p) for p in Path(pkl_folder).glob("*.pkl")]
     record_list = legacydata_to_record(pkl_list, currentmaxcalyidx)
-    # col.insert_many([record for record in record_list if record])
+
+
+def wrapper_legacydata_to_record_rest(insert_log):
+    currentmaxcalyidx = get_current_caly_max_index(col)
+    print(currentmaxcalyidx)
+    with open(insert_log, "r") as f:
+        pkl_list = [l.split()[0] for l in f.readlines() if "cache" in l]
+    record_list = legacydata_to_record(pkl_list, currentmaxcalyidx)
 
 
 if __name__ == "__main__":
-    wrapper_legacydata_to_record("cache")
+    # wrapper_legacydata_to_record("cache")
+    wrapper_legacydata_to_record_rest("insert.log")
