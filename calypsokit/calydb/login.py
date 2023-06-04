@@ -46,20 +46,27 @@ def login(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path=None):
     addr = os.environ.get('MONGO_ADDR', None) if addr is None else addr
     user = os.environ.get('MONGO_USER', None) if user is None else user
     pwd = os.environ.get('MONGO_PWD', None) if pwd is None else pwd
-    db = os.environ.get('MONGO_DB', None) if db is None else db
-    col = os.environ.get('MONGO_COLLECTION', None) if col is None else col
-    for key in (addr, user, pwd, db, col):
+    dbname = os.environ.get('MONGO_DB', None) if db is None else db
+    colname = os.environ.get('MONGO_COLLECTION', None) if col is None else col
+    for key in (addr, user, pwd, dbname, colname):
         if key is None:
             raise ValueError(f"{key} not configured in .env file")
 
     client = pymongo.MongoClient(f"mongodb://{user}:{pwd}@{addr}")
-    db = client[db]
-    col = get_collection(col, db)
+    db = client[dbname]
+    col = get_collection(colname, db)
 
     all_index = col.index_information()
-    if all_index.get("material_id", False):
-        col.ensure_index([("material_id", 1)], unique=True)
-    else:
-        col.create_index([("material_id", 1)], unique=True)
+    if "material_id_1" in all_index:
+        # check unique
+        if not all_index["material_id_1"].get("unique", False):
+            # TODO: del and create new
+            pass
+    else:  # create index
+        try:
+            col.create_index([("material_id", 1)], unique=True)
+        except pymongo.errors.OperationFailure:
+            # may no write permission
+            pass
 
     return db, col
