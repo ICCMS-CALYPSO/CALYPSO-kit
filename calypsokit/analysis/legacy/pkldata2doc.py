@@ -78,12 +78,18 @@ def legacydata_to_record_one(calyidx, data_file):
 
 
 def legacydata_to_record(pkl_list, currentmaxcalyidx):
+    # create entirely new
     record_list = Parallel(backend="multiprocessing")(
-        delayed(legacydata_to_record_one)(calyidx, data_file)
-        for calyidx, data_file in tqdm(
-            enumerate(pkl_list, currentmaxcalyidx + 1), total=len(pkl_list)
-        )
+        delayed(legacydata_to_record_one)(int(Path(data_file).stem), data_file)
+        for data_file in tqdm(pkl_list, total=len(pkl_list))
     )
+    # add to exist col
+    # record_list = Parallel(backend="multiprocessing")(
+    #     delayed(legacydata_to_record_one)(calyidx, data_file)
+    #     for calyidx, data_file in tqdm(
+    #         enumerate(pkl_list, currentmaxcalyidx + 1), total=len(pkl_list)
+    #     )
+    # )
     return record_list
 
 
@@ -113,7 +119,7 @@ def update_timestamp(collection):
 if __name__ == "__main__":
     db, col = login(col="rawcol")
     # --- insert to db
-    # wrapper_legacydata_to_record("cache")
+    wrapper_legacydata_to_record("cache")
     # --- fixed and insert the rest
     # wrapper_legacydata_to_record_rest("insert.log")
     # --- update timestamp
