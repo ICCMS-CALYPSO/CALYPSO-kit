@@ -75,11 +75,23 @@ def get_density_clospack_density(atoms):
 
 
 def series2data(series):
-    formula = "".join(f"{e}{n}" for e, n in zip(series.atom_names_ini, series.atom_counts_ini))
+    formula = "".join(
+        f"{e}{n}" for e, n in zip(series.atom_names_ini, series.atom_counts_ini)
+    )
     if len(list(series.coord_ini)) != len(list(series.coord_opt)):
         raise ValueError("number of atoms not match")
-    atoms_ini = Atoms(formula, cell=list(series.lattice_ini), scaled_positions=list(series.coord_ini), pbc=True)
-    atoms_opt = Atoms(formula, cell=list(series.lattice_opt), scaled_positions=list(series.coord_opt), pbc=True)
+    atoms_ini = Atoms(
+        formula,
+        cell=list(series.lattice_ini),
+        scaled_positions=list(series.coord_ini),
+        pbc=True,
+    )
+    atoms_opt = Atoms(
+        formula,
+        cell=list(series.lattice_opt),
+        scaled_positions=list(series.coord_opt),
+        pbc=True,
+    )
     cell_ini = list(series.lattice_ini)
     cell_opt = list(series.lattice_opt)
     try:
@@ -94,11 +106,16 @@ def series2data(series):
         assert t_opt > 1e-5, "opt volume too small"
     formula = atoms_ini.get_chemical_formula("metal")
     reduce_formula = atoms_ini.symbols.formula.reduce()[0].format("metal")
-    opt_density, volume, clospack_volume, clospack_density = get_density_clospack_density(atoms_opt)
+    (
+        opt_density,
+        volume,
+        clospack_volume,
+        clospack_density,
+    ) = get_density_clospack_density(atoms_opt)
     calyconfig = {"version": parse_version(series)}
     try:
         calyconfig.update(readinput(input_str=series.inputdat_x))
-    except Exception as e:
+    except Exception:
         raise Exception("input fail")
     ini_path, opt_path, ini_idx, opt_idx = split_path(series)
     try:
@@ -139,13 +156,16 @@ def series2data(series):
             "nframes": 2,
             "cell": np.stack([atoms_ini.cell[:], atoms_opt.cell[:]]),
             "positions": np.stack([atoms_ini.positions, atoms_opt.positions]),
-            "scaled_positions": np.stack([atoms_ini.get_scaled_positions(), atoms_opt.get_scaled_positions()]),
+            "scaled_positions": np.stack(
+                [atoms_ini.get_scaled_positions(), atoms_opt.get_scaled_positions()]
+            ),
             "forces": np.zeros([2, len(atoms_ini), 3]) * np.nan,
             "volume": [atoms_ini.get_volume(), atoms_opt.get_volume()],
             "enthalpy": [np.nan, series.enthalpy_per_atom * len(atoms_ini)],
             "enthalpy_per_atom": [np.nan, series.enthalpy_per_atom],
             "source": [ini_path, opt_path],
             "source_idx": [ini_idx, opt_idx],
+            "source_dir": str(Path(ini_path).parent),
         },
         "calyconfig": calyconfig,
         "dftconfig": [series.incar_x],
@@ -158,47 +178,34 @@ def series2data(series):
         "donator": {"name": donator_dict[series.donator_x], "email": None},
         "deprecated": False,
         "deprecated_reason": "",
-        }
+    }
     return d
-
-processed = [p.stem for p in Path("cache").glob("*.pkl")]
-with open("out.log", "r") as f:
-    failed = [l.split()[-1] for l in f.readlines() if l.startswith("ERROR")]
-
-
-processed = [int(p.stem) for p in Path("cache").glob("*.pkl")]
-print(len(processed))
-
-def wrapper_series2data(idx, series):
-    if series.donator_x == "debug":
-        return 1
-    if idx in processed:
-        return 1
-    try:
-        data = series2data(series)
-        pickle.dump(data, open(f"cache/{idx}.pkl", "wb"))
-        return 0
-    except Exception as e:
-        return f"ERROR {idx} : {e}"
-
-
-to_proc = sorted(list(set(range(len(df))) - set(processed)))
-print(len(to_proc))
 
 
 if __name__ == "__main__":
+    with open("out.log", "r") as f:
+        failed = [li.split()[-1] for li in f.readlines() if li.startswith("ERROR")]
+
+    processed = [int(p.stem) for p in Path("cache").glob("*.pkl")]
+    print(len(processed))
+
+    to_proc = sorted(list(set(range(len(df))) - set(processed)))
+    print(len(to_proc))
+
+    def wrapper_series2data(idx, series):
+        if series.donator_x == "debug":
+            return 1
+        if idx in processed:
+            return 1
+        try:
+            data = series2data(series)
+            pickle.dump(data, open(f"cache/{idx}.pkl", "wb"))
+            return 0
+        except Exception as e:
+            return f"ERROR {idx} : {e}"
+
     res = Parallel(30, verbose=5, backend="multiprocessing")(
-        delayed(wrapper_series2data)(idx, ser) for idx, ser in df.iloc[to_proc].iterrows()
+        delayed(wrapper_series2data)(idx, ser)
+        for idx, ser in df.iloc[to_proc].iterrows()
     )
     print(res)
-
-    # with open("fail_uniq-1.log", "a", 1) as f:
-    #     for idx, ser in tqdm(df.iloc[to_proc].iterrows()):
-    #         # 504218 504466 504487 504499 crash
-    #         if idx <= 504499:
-    #             continue
-    #         errlog = wrapper_series2data(idx, ser)
-    #         if isinstance(errlog, str):
-    #             f.write(errlog + "\n")
-    #         elif errlog == 0:
-    #             print(idx)

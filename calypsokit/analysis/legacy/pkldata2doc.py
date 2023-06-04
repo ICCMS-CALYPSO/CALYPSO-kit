@@ -1,5 +1,5 @@
-from datetime import datetime
 import pickle
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -37,13 +37,21 @@ def legacydata_to_record_one(calyidx, data_file):
     db, col = login(col="rawcol")
     try:
         data = pickle.load(open(data_file, "rb"))
+        # ------------------------------------------------------------------------
         data["material_id"] = f"caly-{calyidx}"
+        # ------------------------------------------------------------------------
         data["source"] = {"name": "calypso", "index": calyidx}
+        # ------------------------------------------------------------------------
+        source_dir = str(Path(data["trajectory"]["source"][0]).parent)
+        data["trajectory"].update({"soruce_dir": source_dir})
+        # ------------------------------------------------------------------------
         if data["nelements"] != data["calyconfig"]["numberofspecies"]:
             return False
+        # ------------------------------------------------------------------------
         if data["pseudopotential"][0] == "NotFound":
             data["pseudopotential"] = [None] * data["nelements"]
         data["pseudopotential"] = data["pseudopotential"][: data["nelements"]]
+        # ------------------------------------------------------------------------
         if ("layertype" in data["calyconfig"]) and (
             data["calyconfig"]["layertype"] is not None
         ):
@@ -58,6 +66,7 @@ def legacydata_to_record_one(calyidx, data_file):
                 u: [int(i) for i in v]
                 for u, v in data["calyconfig"]["ctrlrange"].items()
             }
+        # ------------------------------------------------------------------------
         record = RecordDict(data)
     except Exception as e:
         print(data_file, e)
@@ -102,11 +111,10 @@ def update_timestamp(collection):
 
 
 if __name__ == "__main__":
-    pass
+    db, col = login(col="rawcol")
     # --- insert to db
     # wrapper_legacydata_to_record("cache")
     # --- fixed and insert the rest
     # wrapper_legacydata_to_record_rest("insert.log")
     # --- update timestamp
-    # db, col = login(col="rawcol")
     # update_timestamp(col)
