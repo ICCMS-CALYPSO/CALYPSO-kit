@@ -1,11 +1,13 @@
+from datetime import datetime
 import pickle
 from pathlib import Path
 
 import numpy as np
-from calypsokit.calydb.login import login
-from calypsokit.calydb.record import RecordDict
 from joblib import Parallel, delayed
 from tqdm import tqdm
+
+from calypsokit.calydb.login import login
+from calypsokit.calydb.record import RecordDict
 
 
 def get_current_caly_max_index(collection) -> int:
@@ -31,12 +33,8 @@ def get_current_caly_max_index(collection) -> int:
         return cur[0]["source"]["index"]
 
 
-db, col = login(col="rawcol")
-
-
 def legacydata_to_record_one(calyidx, data_file):
-    # db, col = login(col="debugcol")
-    # col.insert_one(RecordDict())
+    db, col = login(col="rawcol")
     try:
         data = pickle.load(open(data_file, "rb"))
         data["material_id"] = f"caly-{calyidx}"
@@ -81,20 +79,34 @@ def legacydata_to_record(pkl_list, currentmaxcalyidx):
 
 
 def wrapper_legacydata_to_record(pkl_folder):
+    db, col = login(col="rawcol")
     currentmaxcalyidx = get_current_caly_max_index(col)
     print(currentmaxcalyidx)
     pkl_list = [str(p) for p in Path(pkl_folder).glob("*.pkl")]
     record_list = legacydata_to_record(pkl_list, currentmaxcalyidx)
+    return record_list
 
 
 def wrapper_legacydata_to_record_rest(insert_log):
+    db, col = login(col="rawcol")
     currentmaxcalyidx = get_current_caly_max_index(col)
     print(currentmaxcalyidx)
     with open(insert_log, "r") as f:
-        pkl_list = [l.split()[0] for l in f.readlines() if "cache" in l]
+        pkl_list = [li.split()[0] for li in f.readlines() if "cache" in li]
     record_list = legacydata_to_record(pkl_list, currentmaxcalyidx)
+    return record_list
+
+
+def update_timestamp(collection):
+    collection.update_many({}, {"$set": {"last_updated_utc": datetime.utcnow()}})
 
 
 if __name__ == "__main__":
+    pass
+    # --- insert to db
     # wrapper_legacydata_to_record("cache")
-    wrapper_legacydata_to_record_rest("insert.log")
+    # --- fixed and insert the rest
+    # wrapper_legacydata_to_record_rest("insert.log")
+    # --- update timestamp
+    # db, col = login(col="rawcol")
+    # update_timestamp(col)

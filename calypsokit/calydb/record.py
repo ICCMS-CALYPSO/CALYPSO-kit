@@ -1,6 +1,4 @@
-import warnings
 from collections import UserDict
-from time import localtime, strftime
 from datetime import datetime
 
 import numpy as np
@@ -39,7 +37,7 @@ class RecordDict(BaseRecordDict):
             "density":            0.0,
             "clospack_volume":          0.0,    # float, A^3
             "clospack_volume_per_atom": 0.0,    # float, A^3
-            "clospack_density":         0.0,    # float, g/(mol*A^3)->g/cm^3
+            "clospack_density":         0.0,    # float, g/cm^3
             "pressure":                 0.0,    # float, GPa
             "pressure_range": {             # each pressure is set to a bin
                 "mid":          "0.0",      # starts=-0.1, width=0.2
@@ -76,6 +74,7 @@ class RecordDict(BaseRecordDict):
             "donator": {"name": "", "email": ""},
             "deprecated":               False,  # bool
             "deprecated_reason":        "",     # str
+            "last_updated_utc": datetime.utcnow(),
         }  # fmt: skip
         default_data.update(self.data)
         self.data = default_data

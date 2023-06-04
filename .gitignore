@@ -1,3 +1,6 @@
+# IDE
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -104,7 +107,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+.env*
 .venv
 env/
 venv/
@@ -129,3 +132,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre
+
+# running test
+run/
