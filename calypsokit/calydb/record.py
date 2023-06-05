@@ -23,6 +23,8 @@ class RecordDict(BaseRecordDict):
             },
             "elements":                 [],     # list of str
             "nelements":                0,      # int
+            "elemcount":                [],     # list of int, count of each element
+            "species":                  [],     # list of str, species of each atom
             "formula":                  "",     # str, metal and alphabet order
             "reduced_formula":          "",     # str, metal and alphabet order
             "natoms":                   0,      # int
@@ -56,6 +58,7 @@ class RecordDict(BaseRecordDict):
                 "enthalpy_per_atom":        [],     # np.ndarray, eV
                 "source":                   [],     # source path of each frame
                 "source_idx":               [],     # index in each source
+                "source_dir":               "",     # source dir
             },
 
             "calyconfig": {

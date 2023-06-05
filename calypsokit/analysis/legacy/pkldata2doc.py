@@ -1,8 +1,17 @@
+# This script holds the following function:
+# 1. Read pickled data dict and insert into collection 'rawcol'
+# 2. batch update documents (needs custom)
+
+# WARNING:
+# DO NOT run this script directly unless you know what you are doing!
+
+
 import pickle
 from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
@@ -33,8 +42,7 @@ def get_current_caly_max_index(collection) -> int:
         return cur[0]["source"]["index"]
 
 
-def legacydata_to_record_one(calyidx, data_file):
-    db, col = login(col="rawcol")
+def legacydata_to_record_one(calyidx, data_file, col):
     try:
         data = pickle.load(open(data_file, "rb"))
         # ------------------------------------------------------------------------
@@ -43,7 +51,7 @@ def legacydata_to_record_one(calyidx, data_file):
         data["source"] = {"name": "calypso", "index": calyidx}
         # ------------------------------------------------------------------------
         source_dir = str(Path(data["trajectory"]["source"][0]).parent)
-        data["trajectory"].update({"soruce_dir": source_dir})
+        data["trajectory"].update({"source_dir": source_dir})
         # ------------------------------------------------------------------------
         if data["nelements"] != data["calyconfig"]["numberofspecies"]:
             return False
@@ -77,10 +85,10 @@ def legacydata_to_record_one(calyidx, data_file):
     # return record
 
 
-def legacydata_to_record(pkl_list, currentmaxcalyidx):
+def legacydata_to_record(pkl_list, currentmaxcalyidx, col):
     # create entirely new
     record_list = Parallel(backend="multiprocessing")(
-        delayed(legacydata_to_record_one)(int(Path(data_file).stem), data_file)
+        delayed(legacydata_to_record_one)(int(Path(data_file).stem), data_file, col)
         for data_file in tqdm(pkl_list, total=len(pkl_list))
     )
     # add to exist col
@@ -98,17 +106,7 @@ def wrapper_legacydata_to_record(pkl_folder):
     currentmaxcalyidx = get_current_caly_max_index(col)
     print(currentmaxcalyidx)
     pkl_list = [str(p) for p in Path(pkl_folder).glob("*.pkl")]
-    record_list = legacydata_to_record(pkl_list, currentmaxcalyidx)
-    return record_list
-
-
-def wrapper_legacydata_to_record_rest(insert_log):
-    db, col = login(col="rawcol")
-    currentmaxcalyidx = get_current_caly_max_index(col)
-    print(currentmaxcalyidx)
-    with open(insert_log, "r") as f:
-        pkl_list = [li.split()[0] for li in f.readlines() if "cache" in li]
-    record_list = legacydata_to_record(pkl_list, currentmaxcalyidx)
+    record_list = legacydata_to_record(pkl_list, currentmaxcalyidx, col)
     return record_list
 
 
@@ -116,11 +114,42 @@ def update_timestamp(collection):
     collection.update_many({}, {"$set": {"last_updated_utc": datetime.utcnow()}})
 
 
+def update_elemcounts(col):
+    from itertools import chain
+
+    from ase.formula import Formula
+
+    def update_elemcounts_one(record):
+        elem_dict = Formula(record["formula"]).count()
+        elemcount = [elem_dict[key] for key in record["elements"]]
+        species = list(
+            chain.from_iterable(
+                [elem] * count for elem, count in zip(record["elements"], elemcount)
+            )
+        )
+        col.update_one(
+            {"_id": record["_id"]},
+            {"$set": {"elemcount": elemcount, "species": species}},
+        )
+
+    Parallel()(
+        delayed(update_elemcounts_one)(record)
+        for record in tqdm(
+            col.find(
+                {"source.name": "calypso"},
+                {"_id": 1, "elements": 1, "formula": 1},
+            )
+        )
+    )
+
+
 if __name__ == "__main__":
     db, col = login(col="rawcol")
     # --- insert to db
-    wrapper_legacydata_to_record("cache")
+    # wrapper_legacydata_to_record("cache")
     # --- fixed and insert the rest
     # wrapper_legacydata_to_record_rest("insert.log")
     # --- update timestamp
     # update_timestamp(col)
+    # --- update elemcounts
+    # update_elemcounts(col)

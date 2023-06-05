@@ -1,5 +1,23 @@
+# From given pandas DataFrame to each pickle file
+#
+# DataFrame keys are:
+# ------------------------------------------------------------------------
+# ['sid_x', 'comment_ini', 'scaling_ini', 'lattice_ini', 'atom_names_ini',
+#  'atom_counts_ini', 'coord_ini', 'sourcepath_ini', 'donator_x',
+#  'pressure_x', 'incar_x', 'potcar_x', 'inputdat_x', 'version',
+#  'compare_sid', 'sid_y', 'enthalpy_per_atom', 'comment_opt',
+#  'scaling_opt', 'lattice_opt', 'atom_names_opt', 'atom_counts_opt',
+#  'coord_opt', 'sourcepath_opt', 'donator_y', 'pressure_y', 'incar_y',
+#  'potcar_y', 'inputdat_y', 'version_opt']
+# ------------------------------------------------------------------------
+# pickled data dict are:
+# (see followed code, may change in the future)
+#
+
+
 import pickle
 import sys
+from itertools import chain
 from pathlib import Path
 
 import numpy as np
@@ -131,6 +149,13 @@ def series2data(series):
     d = {
         "elements": list(series.atom_names_ini),
         "nelements": len(series.atom_names_ini),
+        "elemcount": series.atom_counts_ini,
+        "species": list(
+            chain.from_iterable(
+                [elem] * count
+                for elem, count in zip(series.atom_names_ini, series.atom_counts.ini)
+            )
+        ),
         "formula": formula,
         "reduced_formula": reduce_formula,
         "natoms": len(atoms_ini),
