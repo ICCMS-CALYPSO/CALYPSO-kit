@@ -143,6 +143,28 @@ def update_elemcounts(col):
     )
 
 
+def update_sourcedir(col):
+    def update_sourcedir_one(record):
+        source_dir = record["trajectory"]["soruce_dir"]
+        col.update_one(
+            {"_id": record["_id"]},
+            {
+                "$set": {"trajectory.source_dir": source_dir},
+                "$unset": {"trajectory.soruce_dir": 1},
+            },
+        )
+
+    Parallel()(
+        delayed(update_sourcedir_one)(record)
+        for record in tqdm(
+            col.find(
+                {"trajectory.soruce_dir": {"$exists": 1}},
+                {"trajectory.soruce_dir": 1},
+            )
+        )
+    )
+
+
 if __name__ == "__main__":
     db, col = login(col="rawcol")
     # --- insert to db
@@ -153,3 +175,5 @@ if __name__ == "__main__":
     # update_timestamp(col)
     # --- update elemcounts
     # update_elemcounts(col)
+    # --- update error "soruce_dir" to "source_dir"
+    # update_sourcedir(col)
