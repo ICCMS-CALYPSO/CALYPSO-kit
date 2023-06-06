@@ -56,17 +56,18 @@ def login(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path=None):
     db = client[dbname]
     col = get_collection(colname, db)
 
-    all_index = col.index_information()
-    if "material_id_1" in all_index:
-        # check unique
-        if not all_index["material_id_1"].get("unique", False):
-            # TODO: del and create new
-            pass
-    else:  # create index
-        try:
-            col.create_index([("material_id", 1)], unique=True)
-        except pymongo.errors.OperationFailure:
-            # may no write permission
-            pass
-
     return db, col
+
+
+def maintain_indexes(col) -> dict:
+    iinfo = col.index_information()
+    if ("material_id_1" in iinfo) and (not iinfo["material_id_1"].get("unique", False)):
+        col.drop_index("material_id_1")
+
+    iinfo = col.index_information()
+    if "material_id_1" not in iinfo:
+        col.create_index([("material_id", 1)], unique=True, name="material_id_1")
+    elif "deprecated_1" not in iinfo:
+        col.create_index([("deprecated", 1)], name="deprecated_1")
+
+    return col.index_information()

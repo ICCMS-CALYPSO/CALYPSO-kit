@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from pymongo.errors import DuplicateKeyError
 
-from calypsokit.calydb.login import login
+from calypsokit.calydb.login import login, maintain_indexes
 from calypsokit.calydb.record import RecordDict
 
 
@@ -49,3 +49,24 @@ class TestCalyDB(unittest.TestCase):
     def test_05_RawDocDict(self):
         record = RecordDict()
         self.col.insert_one(record)
+
+    def test_06_update(self):
+        err_key = "err_key"
+        doc = {"key1": "val_1", "key2": {"key2_1": "val2_1", err_key: "val2_2"}}
+        # insert an error key-val
+        self.col.insert_one(doc)
+        record = self.col.find_one(
+            {f"key2.{err_key}": {"$exists": 1}}, {"key2": {err_key: 1}}
+        )
+        val = record["key2"][err_key]
+        # fix the error key-val
+        self.col.update_one(
+            {},
+            {"$set": {"key2.key2_2": val}, "$unset": {f"key2.{err_key}": 1}},
+        )
+        self.assertEqual(self.col.find_one()["key2"]["key2_2"], val)
+
+    def test_07_maintainIndex(self):
+        index = maintain_indexes(self.col)
+        self.assertTrue(index.get("material_id_1", False))
+        self.assertTrue(index.get("deprecated_1", False))
