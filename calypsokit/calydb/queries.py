@@ -1,14 +1,8 @@
 from collections import UserDict
 from typing import Any
 
-import pymongo
 from bson import ObjectId
 from pymatgen.core.structure import Structure
-
-
-# from `calydb/rawcol` to `calydb/uniqcol`
-def search_unique():
-    pass
 
 
 class QueryStructure(UserDict):
@@ -149,8 +143,10 @@ class QueryTrajectory(UserDict):
         return structures
 
 
-def pipline_number_in_task(lte: int = -1) -> list[dict[str, Any]]:
-    """count number of not deprecated structure in one prediction task, filter by lte
+def pipline_group_task(lte: int = -1) -> list[dict[str, Any]]:
+    """Group by task, then count number of not deprecated structure, filter by lte.
+
+    Remember: One task may has more than one formual (VSC task).
 
     Parameters
     ----------
@@ -178,12 +174,14 @@ def pipline_number_in_task(lte: int = -1) -> list[dict[str, Any]]:
     return pipline
 
 
-def pipline_taskgroup() -> list[dict[str, Any]]:
+def pipline_group_task_formula() -> list[dict[str, Any]]:
+    """Group by task and formula"""
     pipline: list[dict[str, Any]] = [
         {"$match": {"deprecated": False}},
         {
             "$group": {
                 "_id": {"task": "$trajectory.source_dir", "formula": "$formula"},
+                "count": {"$sum": 1},
                 "ids": {"$push": "$_id"},
                 "enth_list": {"$push": "$enthalpy_per_atom"},
             }
@@ -192,8 +190,8 @@ def pipline_taskgroup() -> list[dict[str, Any]]:
     return pipline
 
 
-def pipline_sort_enth_by_taskgroup() -> list[dict[str, Any]]:
-    """sort enthalpy_per_atom by task group
+def pipline_sort_enthalpy() -> list[dict[str, Any]]:
+    """sort enthalpy_per_atom by group of task and formula
 
     Returns
     -------
