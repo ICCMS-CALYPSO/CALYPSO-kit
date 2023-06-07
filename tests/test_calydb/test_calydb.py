@@ -8,11 +8,14 @@ from pymongo.errors import DuplicateKeyError
 
 from calypsokit.calydb.login import login, maintain_indexes
 from calypsokit.calydb.record import RecordDict
+from calypsokit.calydb.query import QueryStructure, QueryTrajectory
 
 
 class TestCalyDB(unittest.TestCase):
     # WARNING! Never change this debugcollection
     db, col = login(col="debugcol")
+    # recordsample = RecordDict(
+    # )
 
     def setUp(self):
         self.col.delete_many({})
@@ -49,6 +52,15 @@ class TestCalyDB(unittest.TestCase):
     def test_05_RawDocDict(self):
         record = RecordDict()
         self.col.insert_one(record)
+        self.assertEqual(record.get_pressure_range(-0.1, 0.2, "right")["mid"], "-0.2")
+        self.assertEqual(record.get_pressure_range(0.1, 0.2, "right")["mid"], "0.0")
+        self.assertEqual(record.get_pressure_range(0.2, 0.2, "right")["mid"], "0.2")
+        self.assertEqual(record.get_pressure_range(0.4, 0.2, "right")["mid"], "0.4")
+        self.assertEqual(record.get_pressure_range(-0.1, 0.2, "left")["mid"], "0.0")
+        self.assertEqual(record.get_pressure_range(0.1, 0.2, "left")["mid"], "0.2")
+        self.assertEqual(record.get_pressure_range(0.2, 0.2, "left")["mid"], "0.2")
+        self.assertEqual(record.get_pressure_range(0.4, 0.2, "left")["mid"], "0.4")
+        # self.assertEqual(record.get_pressure_range(0.1, 0.2, "right")["mid"], "0.0")
 
     def test_06_update(self):
         err_key = "err_key"
@@ -70,3 +82,9 @@ class TestCalyDB(unittest.TestCase):
         index = maintain_indexes(self.col)
         self.assertTrue(index.get("material_id_1", False))
         self.assertTrue(index.get("deprecated_1", False))
+
+    def test_08_QueryStructure(self):
+        pass
+
+    def test_09_QueryTrajectory(self):
+        pass
