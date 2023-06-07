@@ -43,11 +43,12 @@ def get_collection(name, db):
 
 def login(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path=None):
     dotenv.load_dotenv(dotenv_path=dotenv_path, override=True)
-    addr = os.environ.get('MONGO_ADDR', None) if addr is None else addr
-    user = os.environ.get('MONGO_USER', None) if user is None else user
-    pwd = os.environ.get('MONGO_PWD', None) if pwd is None else pwd
-    dbname = os.environ.get('MONGO_DB', None) if db is None else db
-    colname = os.environ.get('MONGO_COLLECTION', None) if col is None else col
+    addr = os.environ.get('MONGODB_ADDR', None) if addr is None else addr
+    user = os.environ.get('MONGODB_USER', None) if user is None else user
+    pwd = os.environ.get('MONGODB_PWD', None) if pwd is None else pwd
+    dbname = os.environ.get('MONGODB_DATABASE', None) if db is None else db
+    colname = os.environ.get('MONGODB_COLLECTION', None) if col is None else col
+
     for key in (addr, user, pwd, dbname, colname):
         if key is None:
             raise ValueError(f"{key} not configured in .env file")

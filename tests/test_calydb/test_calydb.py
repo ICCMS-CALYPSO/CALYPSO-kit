@@ -18,6 +18,7 @@ class TestCalyDB(unittest.TestCase):
     # )
 
     def setUp(self):
+        self.assertEqual(self.col.name, "debugcol", "CAN ONLY operate on 'debugcol'")
         self.col.delete_many({})
 
     def tearDown(self):
