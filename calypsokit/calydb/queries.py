@@ -6,22 +6,30 @@ from pymatgen.core.structure import Structure
 
 
 class QueryStructure(UserDict):
-    def __init__(self, collection):
+    def __init__(self, collection, projection: dict = {}):
         """Query and cache pymatgen Structure in this dict
 
-        Only the final structure in the trajectory is returned.
+        i.e. same as the final structure in the trajectory.
 
-        The key is bson ObjectId.
+        Item as {ObjectId: (Structure, properties)}. The key is bson ObjectId.
 
         Parameters
         ----------
         collection : pymongo.collection.Collection
             pymongo collection to query from.
+        projection: dict
+
         """
         super().__init__()
         self.col = collection
+        self.projection = projection | {
+            "_id": 1,
+            "species": 1,
+            "cell": 1,
+            "positions": 1,
+        }
 
-    def find_one(self, filter: dict) -> Structure:
+    def find_one(self, filter: dict):
         """find one structure
 
         Parameters
@@ -31,27 +39,28 @@ class QueryStructure(UserDict):
 
         Returns
         -------
-        Structure
-            pymatgen structure.
+        structure: Structure
+        properties: dict
 
         Raises
         ------
         KeyError
             Cannot find any record in the collection.
         """
-        record = self.col.find_one(filter, {"species": 1, "cell": 1, "positions": 1})
+        record = self.col.find_one(filter, self.projection)
         if record is not None:
             if record["_id"] not in self.data:
+                lattice = record.pop("cell")
+                species = record.pop("species")
+                coords = record.pop("positions")
                 structure = Structure(
-                    lattice=record["cell"],
-                    species=record["species"],
-                    coords=record["positions"],
+                    lattice=lattice,
+                    species=species,
+                    coords=coords,
                     coords_are_cartesian=True,
                 )
-                self.data[record["_id"]] = structure
-            else:
-                structure = self.data[record["_id"]]
-            return structure
+                self.data[record["_id"]] = (structure, record)
+            return self.data[record["_id"]]
         else:
             raise KeyError(f"Cannot find record which satisfy this filter : {filter}")
 
@@ -65,82 +74,82 @@ class QueryStructure(UserDict):
 
         Yields
         ------
-        Structure
-            pymatgen structure
+        structure: Structure
+        properties: dict
         """
-        cursor = self.col.find(filter, {"species": 1, "cell": 1, "positions": 1})
+        cursor = self.col.find(filter, self.projection)
         for record in cursor:
             if record["_id"] not in self.data:
+                lattice = record.pop("cell")
+                species = record.pop("species")
+                coords = record.pop("positions")
                 structure = Structure(
-                    lattice=record["cell"],
-                    species=record["species"],
-                    coords=record["positions"],
+                    lattice=lattice,
+                    species=species,
+                    coords=coords,
                     coords_are_cartesian=True,
                 )
-                self.data[record["_id"]] = structure
-            else:
-                structure = self.data[record["_id"]]
-            yield structure
+                self.data[record["_id"]] = (structure, record)
+            yield self.data[record["_id"]]
 
     def __getitem__(self, _id: ObjectId):
-        structure = self.data.get(_id, None)
-        if structure is None:
-            structure = self.find_one({"_id": _id})
-        return structure
+        item = self.data.get(_id, None)
+        if item is None:
+            item = self.find_one({"_id": _id})
+        return item
 
 
 class QueryTrajectory(UserDict):
-    def __init__(self, collection):
+    def __init__(self, collection, projection: dict = {}):
         super().__init__()
         self.col = collection
+        self.projection = projection | {"_id": 1, "species": 1, "trajectory": 1}
 
     def find_one(self, filter: dict):
-        record = self.col.find_one(filter, {"species": 1, "trajectory": 1})
+        record = self.col.find_one(filter, self.projection)
         if record is not None:
             if record["_id"] not in self.data:
-                structures = tuple(
+                species = record.pop("species")
+                traj_cell = record["trajectory"].pop("cell")
+                traj_pos = record["trajectory"].pop("positions")
+                trajectory = tuple(
                     Structure(
                         lattice=cell,
-                        species=record["species"],
+                        species=species,
                         coords=positions,
                         coords_are_cartesian=True,
                     )
-                    for cell, positions in zip(
-                        record["trajectory"]["cell"], record["trajectory"]["positions"]
-                    )
+                    for cell, positions in zip(traj_cell, traj_pos)
                 )
-                self.data[record["_id"]] = structures
-            else:
-                structures = self.data[record["_id"]]
-            return structures
+                self.data[record["_id"]] = (trajectory, record)
+            return self.data[record["_id"]]
         else:
             raise KeyError(f"Cannot find record which satisfy this filter : {filter}")
 
     def find(self, filter: dict):
-        cursor = self.col.find(filter, {"species": 1, "cell": 1, "positions": 1})
+        cursor = self.col.find(filter, self.projection)
         for record in cursor:
             if record["_id"] not in self.data:
-                structures = tuple(
+                species = record.pop("species")
+                traj_cell = record["trajectory"].pop("cell")
+                traj_pos = record["trajectory"].pop("positions")
+                trajectory = tuple(
                     Structure(
                         lattice=cell,
-                        species=record["species"],
+                        species=species,
                         coords=positions,
                         coords_are_cartesian=True,
                     )
-                    for cell, positions in zip(
-                        record["trajectory"]["cell"], record["trajectory"]["positions"]
-                    )
+                    for cell, positions in zip(traj_cell, traj_pos)
                 )
-                self.data[record["_id"]] = structures
-            else:
-                structures = self.data[record["_id"]]
-            yield structures
+                self.data[record["_id"]] = (trajectory, record)
+            yield self.data[record["_id"]]
 
     def __getitem__(self, _id: ObjectId):
-        structures = self.data.get(_id, None)
-        if structures is None:
-            structures = self.find_one({"_id": _id})
-        return structures
+        item = self.data.get(_id, None)
+        if item is None:
+            item = self.find_one({"_id": _id})
+        return item
 
 
 def pipline_group_task(lte: int = -1) -> list[dict[str, Any]]:
