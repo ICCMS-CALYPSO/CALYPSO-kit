@@ -152,7 +152,7 @@ class QueryTrajectory(UserDict):
         return item
 
 
-def pipline_group_task(lte: int = -1) -> list[dict[str, Any]]:
+def pipeline_group_task(lte: int = -1) -> list[dict[str, Any]]:
     """Group by task, then count number of not deprecated structure, filter by lte.
 
     Remember: One task may has more than one formual (VSC task).
@@ -168,7 +168,7 @@ def pipline_group_task(lte: int = -1) -> list[dict[str, Any]]:
         pipline list for aggregate, new records with
         {"_id": <source_dir>, "count": int, "ids": [_id, ...]}
     """
-    pipline: list[dict[str, Any]] = [
+    pipeline: list[dict[str, Any]] = [
         {"$match": {"deprecated": False}},
         {
             "$group": {
@@ -179,13 +179,13 @@ def pipline_group_task(lte: int = -1) -> list[dict[str, Any]]:
         },
     ]
     if lte >= 0:
-        pipline.append({"$match": {"count": {"$lte": lte}}})
-    return pipline
+        pipeline.append({"$match": {"count": {"$lte": lte}}})
+    return pipeline
 
 
-def pipline_group_task_formula() -> list[dict[str, Any]]:
+def pipeline_group_task_formula() -> list[dict[str, Any]]:
     """Group by task and formula"""
-    pipline: list[dict[str, Any]] = [
+    pipeline: list[dict[str, Any]] = [
         {"$match": {"deprecated": False}},
         {
             "$group": {
@@ -196,10 +196,10 @@ def pipline_group_task_formula() -> list[dict[str, Any]]:
             }
         },
     ]
-    return pipline
+    return pipeline
 
 
-def pipline_sort_enthalpy() -> list[dict[str, Any]]:
+def pipeline_sort_enthalpy() -> list[dict[str, Any]]:
     """sort enthalpy_per_atom by group of task and formula
 
     Returns
@@ -208,7 +208,7 @@ def pipline_sort_enthalpy() -> list[dict[str, Any]]:
         pipline list for aggregate, new records with
         {"_id": <source_dir>, "sorted_ids": [_id, ...], "sorted_enth": [enth, ...]}
     """
-    pipline: list[dict[str, Any]] = [
+    pipeline: list[dict[str, Any]] = [
         {"$match": {"deprecated": False}},
         # group by task, add 'ids' original _id list and 'enth_list'
         {
@@ -233,4 +233,8 @@ def pipline_sort_enthalpy() -> list[dict[str, Any]]:
             }
         },
     ]
-    return pipline
+    return pipeline
+
+
+def pipe_unique_records():
+    pass

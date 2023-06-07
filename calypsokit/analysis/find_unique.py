@@ -11,7 +11,7 @@ from pymatgen.analysis.structure_matcher import StructureMatcher
 from tqdm import tqdm
 
 from calypsokit.calydb.login import login
-from calypsokit.calydb.queries import QueryStructure, pipline_group_task_formula
+from calypsokit.calydb.queries import QueryStructure, pipeline_group_task_formula
 
 
 # 1. Group structures by task and formula.
@@ -66,15 +66,21 @@ def find_unique(record_task_formula, col="rawcol", e_threshold=0.005, **match_kw
 
 
 if __name__ == '__main__':
-    pipline = pipline_group_task_formula()
+    pipeline = pipeline_group_task_formula()
     # pipline.append({"$match": {"count": {"$lt": 20}}})
     # pipline.append({"$limit": 3})
     db, col = login(col="rawcol")
-    cur = list(col.aggregate(pipline))
+    cur = list(col.aggregate(pipeline))
     results = Parallel(backend="multiprocessing")(
         delayed(find_unique)(record_task_formula) for record_task_formula in tqdm(cur)
     )
     unique_list = list(chain.from_iterable(results))
-    db, uniqcol = login(col="uniqcol", dotenv_path=".env-maintain")
-    data = {"unique_ids": unique_list, "last_updated_utc": datetime.utcnow()}
-    uniqcol.insert_one(data)
+
+    # import pickle
+
+    # print(len(unique_list))
+    # with open("unique.pkl", "wb") as f:
+    #     pickle.dump(unique_list, f)
+    # db, uniqcol = login(col="uniqcol", dotenv_path=".env-maintain")
+    # data = {"unique_ids": unique_list, "last_updated_utc": datetime.utcnow()}
+    # uniqcol.insert_one(data)
