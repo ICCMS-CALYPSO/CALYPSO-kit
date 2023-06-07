@@ -8,7 +8,7 @@ from pymongo.errors import DuplicateKeyError
 
 from calypsokit.calydb.login import login, maintain_indexes
 from calypsokit.calydb.record import RecordDict
-from calypsokit.calydb.query import QueryStructure, QueryTrajectory
+from calypsokit.calydb.queries import QueryStructure, QueryTrajectory
 
 
 class TestCalyDB(unittest.TestCase):
