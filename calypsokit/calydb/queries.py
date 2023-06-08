@@ -152,6 +152,11 @@ class QueryTrajectory(UserDict):
         return item
 
 
+def pipe_undeprecated_record():
+    pipeline = [{"$match": {"deprecated": False}}]
+    return pipeline
+
+
 def pipe_group_task(lte: int = -1) -> list[dict[str, Any]]:
     """Group by task, then count number of not deprecated structure, filter by lte.
 
@@ -246,11 +251,9 @@ def pipe_unique_records(fromcol="rawcol"):
                 'as': 'matched_docs',
             }
         },
-        {
-            '$match': {
-                'matched_docs': {'$ne': []}  # Filter only the documents with matches
-            }
-        },
+        # Filter only the documents with matches
+        {'$match': {'matched_docs': {'$ne': []}}},
         {"$unwind": "$matched_docs"},
+        {"$match": {"deprecated": False}},
     ]
     return pipeline
