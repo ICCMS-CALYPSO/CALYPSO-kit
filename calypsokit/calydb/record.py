@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 from ase import Atoms
 from ase.data import atomic_numbers, covalent_radii
+from ase.spacegroup import get_spacegroup
 
 
 class BaseRecordDict(UserDict):
@@ -122,6 +123,8 @@ class RecordDict(BaseRecordDict):
             clospack_density,
             clospack_volume,
         ) = cls.get_density_clospack_density(trajectory[-1])
+        symmetry = cls.wrapped_get_symmetry(trajectory[:-1])
+
         datadict = {
             "elements": list(formula.count().keys()),
             "nelements": len(formula.count()),
@@ -178,12 +181,13 @@ class RecordDict(BaseRecordDict):
             "pseudopotential": trajectory[-1].info.get(
                 "pseudopotential", [None] * len(trajectory[-1])
             ),
-            "symmetry": {prec: {} for prec in []},  # TODO: add symmetry, recommand to use multiprecessing to deal with core dump
+            "symmetry": symmetry,
+            # TODO: recommand to use multiprecessing to deal with core dump
             "donator": {"name": "", "email": ""},  # TODO: add donator
             "deprecated": False,
             "deprecated_reason": "",
         }
-        return
+        return datadict
 
     @staticmethod
     def get_density_clospack_density(atoms: Atoms):
@@ -248,4 +252,15 @@ class RecordDict(BaseRecordDict):
             "mid": "{:.1f}".format(mid),
             "length": "{:.1f}".format(length),
             "closed": closed,
+        }
+
+    @staticmethod
+    def get_symmetry(atoms: Atoms, symprec):
+        spg = get_spacegroup(atoms, symprec)
+        return {"number": spg.no, "symbol": spg.symbol}
+
+    def warpped_get_symmetry(self, atoms: Atoms):
+        return {
+            key: self.get_symmetry(atoms, symprec)
+            for key, symprec in zip(["1e-1", "1e-2", "1e-5"], [1e-1, 1e-2, 1e-5])
         }
