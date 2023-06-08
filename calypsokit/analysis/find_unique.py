@@ -66,21 +66,28 @@ def find_unique(record_task_formula, col="rawcol", e_threshold=0.005, **match_kw
 
 
 if __name__ == '__main__':
-    pipeline = pipeline_group_task_formula()
-    # pipline.append({"$match": {"count": {"$lt": 20}}})
-    # pipline.append({"$limit": 3})
-    db, col = login(col="rawcol")
-    cur = list(col.aggregate(pipeline))
-    results = Parallel(backend="multiprocessing")(
-        delayed(find_unique)(record_task_formula) for record_task_formula in tqdm(cur)
-    )
-    unique_list = list(chain.from_iterable(results))
+    # ---------------------------------------------------------------
+    # Uncomment the following to run find unique
+    # pipeline = pipeline_group_task_formula()
+    # # pipline.append({"$match": {"count": {"$lt": 20}}})
+    # # pipline.append({"$limit": 3})
+    # db, col = login(col="rawcol")
+    # cur = list(col.aggregate(pipeline))
+    # results = Parallel(backend="multiprocessing")(
+    #     delayed(find_unique)(record_task_formula) for record_task_formula in tqdm(cur)
+    # )
+    # unique_list = list(chain.from_iterable(results))
+    # ---------------------------------------------------------------
 
-    # import pickle
+    import pickle
 
-    # print(len(unique_list))
-    # with open("unique.pkl", "wb") as f:
-    #     pickle.dump(unique_list, f)
+    # with open("unique.pkl", "rb") as f:
+    #     unique_list = pickle.load(f)
+    # # print(unique_list)
     # db, uniqcol = login(col="uniqcol", dotenv_path=".env-maintain")
+    # uniqcol.insert_many(
+    #     [{"_id": uniq_id, "version": 20230601} for uniq_id in unique_list]
+    # )
+
     # data = {"unique_ids": unique_list, "last_updated_utc": datetime.utcnow()}
     # uniqcol.insert_one(data)
