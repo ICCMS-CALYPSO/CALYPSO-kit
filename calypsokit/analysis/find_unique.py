@@ -11,7 +11,7 @@ from pymatgen.analysis.structure_matcher import StructureMatcher
 from tqdm import tqdm
 
 from calypsokit.calydb.login import login
-from calypsokit.calydb.queries import QueryStructure, pipeline_group_task_formula
+from calypsokit.calydb.queries import QueryStructure, pipe_group_task_formula
 
 
 # 1. Group structures by task and formula.
@@ -68,7 +68,7 @@ def find_unique(record_task_formula, col="rawcol", e_threshold=0.005, **match_kw
 if __name__ == '__main__':
     # ---------------------------------------------------------------
     # Uncomment the following to run find unique
-    # pipeline = pipeline_group_task_formula()
+    # pipeline = pipe_group_task_formula()
     # # pipline.append({"$match": {"count": {"$lt": 20}}})
     # # pipline.append({"$limit": 3})
     # db, col = login(col="rawcol")
@@ -88,6 +88,6 @@ if __name__ == '__main__':
     # uniqcol.insert_many(
     #     [{"_id": uniq_id, "version": 20230601} for uniq_id in unique_list]
     # )
-
+    #
     # data = {"unique_ids": unique_list, "last_updated_utc": datetime.utcnow()}
     # uniqcol.insert_one(data)

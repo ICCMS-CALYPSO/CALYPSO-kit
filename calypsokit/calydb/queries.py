@@ -152,7 +152,7 @@ class QueryTrajectory(UserDict):
         return item
 
 
-def pipeline_group_task(lte: int = -1) -> list[dict[str, Any]]:
+def pipe_group_task(lte: int = -1) -> list[dict[str, Any]]:
     """Group by task, then count number of not deprecated structure, filter by lte.
 
     Remember: One task may has more than one formual (VSC task).
@@ -183,7 +183,7 @@ def pipeline_group_task(lte: int = -1) -> list[dict[str, Any]]:
     return pipeline
 
 
-def pipeline_group_task_formula() -> list[dict[str, Any]]:
+def pipe_group_task_formula() -> list[dict[str, Any]]:
     """Group by task and formula"""
     pipeline: list[dict[str, Any]] = [
         {"$match": {"deprecated": False}},
@@ -199,7 +199,7 @@ def pipeline_group_task_formula() -> list[dict[str, Any]]:
     return pipeline
 
 
-def pipeline_sort_enthalpy() -> list[dict[str, Any]]:
+def pipe_sort_enthalpy() -> list[dict[str, Any]]:
     """sort enthalpy_per_atom by group of task and formula
 
     Returns
@@ -236,5 +236,21 @@ def pipeline_sort_enthalpy() -> list[dict[str, Any]]:
     return pipeline
 
 
-def pipe_unique_records():
-    pass
+def pipe_unique_records(fromcol="rawcol"):
+    pipeline = [
+        {
+            '$lookup': {
+                'from': f"{fromcol}",
+                'localField': '_id',
+                'foreignField': '_id',
+                'as': 'matched_docs',
+            }
+        },
+        {
+            '$match': {
+                'matched_docs': {'$ne': []}  # Filter only the documents with matches
+            }
+        },
+        {"$unwind": "$matched_docs"},
+    ]
+    return pipeline
