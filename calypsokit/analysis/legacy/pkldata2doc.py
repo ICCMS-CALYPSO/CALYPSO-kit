@@ -145,24 +145,21 @@ def update_elemcounts(col):
 
 def update_sourcedir(col):
     def update_sourcedir_one(record):
-        source_dir = record["trajectory"]["soruce_dir"]
+        source_dir = record["trajectory"]["source_dir"]
+        if source_dir.startswith("20230601"):
+            source_dir = "20230601/" + source_dir.split("/", 1)[1]
+        else:
+            source_dir = "20230601" + source_dir
         col.update_one(
             {"_id": record["_id"]},
             {
                 "$set": {"trajectory.source_dir": source_dir},
-                "$unset": {"trajectory.soruce_dir": 1},
+                # "$unset": {"trajectory.soruce_dir": 1},
             },
         )
 
-    Parallel()(
-        delayed(update_sourcedir_one)(record)
-        for record in tqdm(
-            col.find(
-                {"trajectory.soruce_dir": {"$exists": 1}},
-                {"trajectory.soruce_dir": 1},
-            )
-        )
-    )
+    for record in tqdm(col.find({}, {"trajectory.source_dir": 1})):
+        update_sourcedir_one(record)
 
 
 if __name__ == "__main__":
@@ -176,4 +173,5 @@ if __name__ == "__main__":
     # --- update elemcounts
     # update_elemcounts(col)
     # --- update error "soruce_dir" to "source_dir"
+    # --- add prefix to "source_dir"
     # update_sourcedir(col)
