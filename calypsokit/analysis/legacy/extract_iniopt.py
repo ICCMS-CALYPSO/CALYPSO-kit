@@ -1,57 +1,31 @@
-# From given pandas DataFrame to each pickle file
+# Extract ini/opt and group the matched one, then insert to rawcol directly
 #
-# DataFrame keys are:
-# ------------------------------------------------------------------------
-# ['sid_x', 'comment_ini', 'scaling_ini', 'lattice_ini', 'atom_names_ini',
-#  'atom_counts_ini', 'coord_ini', 'sourcepath_ini', 'donator_x',
-#  'pressure_x', 'incar_x', 'potcar_x', 'inputdat_x', 'version',
-#  'compare_sid', 'sid_y', 'enthalpy_per_atom', 'comment_opt',
-#  'scaling_opt', 'lattice_opt', 'atom_names_opt', 'atom_counts_opt',
-#  'coord_opt', 'sourcepath_opt', 'donator_y', 'pressure_y', 'incar_y',
-#  'potcar_y', 'inputdat_y', 'version_opt']
-# ------------------------------------------------------------------------
-# pickled data dict are:
-# (see followed code, may change in the future)
-#
+# Warning: Do not run this file unless you know what you're doing and have already
+# made the proper modification
 
-
-import pickle
-import sys
 from itertools import chain
 from pathlib import Path
+from pprint import pprint
 
 import numpy as np
-import pandas as pd
-from ase import Atoms
-from ase.data import atomic_masses, atomic_numbers, covalent_radii
-from ase.spacegroup import get_spacegroup
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from calypsokit.analysis.legacy.read_inputdat import readinput
+from calypsokit.analysis.properties import (
+    get_density_clospack_density,
+    get_formula,
+    get_pressure_range,
+    wrapped_get_symmetry_from_datadict,
+)
 from calypsokit.calydb.login import login
+from calypsokit.calydb.queries import get_current_caly_max_index
+from calypsokit.calydb.record import RecordDict
 
 try:
     from calypsokit.analysis.legacy.contactbook import contactbook
 except ModuleNotFoundError as e:
     raise e
-
-
-def get_density_clospack_density(species, cell):
-    mass = sum(atomic_masses[atomic_numbers[symbol]] for symbol in species)  # g/mol
-    volume = abs(np.linalg.det(cell))  # A^3
-    gmol2gcm3 = 1 / 0.602214076
-    density = mass / volume * gmol2gcm3  # to g/cm^3
-    clospack_volume = sum(
-        [
-            4 / 3 * np.pi * covalent_radii[atomic_numbers[symbol]] ** 3
-            for symbol in species
-        ]
-    )
-    packingcoef = 0.74048
-    clospack_volume /= packingcoef
-    clospack_density = mass / clospack_volume * gmol2gcm3
-    return density, volume, clospack_density, clospack_volume
 
 
 def get_results_dir(root, level=1):
@@ -74,14 +48,13 @@ def get_results_dir(root, level=1):
     return results_list
 
 
-def get_basic_info(root, results_dir, cwd):
+def get_basic_info(root, results_dir):
     root_date = Path(root).name
     results_dir = Path(results_dir)
     donator = Path(results_dir).relative_to(root).parts[0]
     donator = contactbook[root_date][donator]
 
     logfile = results_dir.joinpath("CALYPSO.log")
-    print(logfile)
     if logfile.exists():
         with open(logfile, "r") as log:
             for line in log:
@@ -115,12 +88,12 @@ def get_basic_info(root, results_dir, cwd):
             for line in f:
                 if "TITEL" in line:
                     potcar.append(line.strip())
-    print(donator)
-    print(pressure)
-    print(incar)
-    print(potcar)
-    print(inputdat)
-    print(version)
+    # print(donator)
+    # print(pressure)
+    # print(incar)
+    # print(potcar)
+    # print(inputdat)
+    # print(version)
 
     return (donator, pressure, incar, potcar, inputdat, version)
 
@@ -372,182 +345,109 @@ def extract_opt_structures(root, results_dir, basic_info):
     return struct
 
 
-def match_iniopt(ini_dict, opt_dict):
+def match_iniopt(ini_dict, opt_dict, basic_info):
+    donator, pressure, incar, potcar, inputdat, version = basic_info
+    pressure_range = get_pressure_range(pressure)
     matched_keys = list(set(ini_dict.keys()) & set(opt_dict.keys()))
-    for keys in matched_keys:
-        pass
-    return matched_keys
-
-
-def split_path(series):
-    # parent = "/home/wangzy/workplace/xiaoshan/database/calypso/Dalao.Done.bk"
-    sid_ini = series.sid_x
-    sid_opt = series.sid_y
-    ini_path, ini_idx = sid_ini.split("#")
-    opt_path, opt_idx = sid_opt.split("#")
-    ini_path = ini_path[62:].replace("/database/..", "")
-    opt_path = opt_path[62:].replace("/database/..", "")
-    return ini_path, opt_path, int(ini_idx), int(opt_idx)
-
-
-def parse_version(series):
-    version = series.version
-    if version[0] == "P":
-        version = version[18:23]
-    else:
-        version = "legacy"
-    return version
-
-
-"""
-def series2data(series):
-    formula = "".join(
-        f"{e}{n}" for e, n in zip(series.atom_names_ini, series.atom_counts_ini)
-    )
-    if len(list(series.coord_ini)) != len(list(series.coord_opt)):
-        raise ValueError("number of atoms not match")
-    atoms_ini = Atoms(
-        formula,
-        cell=list(series.lattice_ini),
-        scaled_positions=list(series.coord_ini),
-        pbc=True,
-    )
-    atoms_opt = Atoms(
-        formula,
-        cell=list(series.lattice_opt),
-        scaled_positions=list(series.coord_opt),
-        pbc=True,
-    )
-    cell_ini = list(series.lattice_ini)
-    cell_opt = list(series.lattice_opt)
-    try:
-        t_ini = np.linalg.det(cell_ini)
-        t_opt = np.linalg.det(cell_opt)
-    except Exception as e:
-        raise Exception(e)
-    else:
-        assert np.isfinite(t_ini), "ini cell det infinite"
-        assert np.isfinite(t_opt), "opt cell det infinite"
-        assert t_ini > 1e-5, "ini volume too small"
-        assert t_opt > 1e-5, "opt volume too small"
-    formula = atoms_ini.get_chemical_formula("metal")
-    reduce_formula = atoms_ini.symbols.formula.reduce()[0].format("metal")
-    (
-        opt_density,
-        volume,
-        clospack_volume,
-        clospack_density,
-    ) = get_density_clospack_density(atoms_opt)
-    calyconfig = {"version": parse_version(series)}
-    try:
-        calyconfig.update(readinput(input_str=series.inputdat_x))
-    except Exception:
-        raise Exception("input fail")
-    ini_path, opt_path, ini_idx, opt_idx = split_path(series)
-    try:
-        spg1 = get_spacegroup(atoms_opt, 1e-1)
-        spg1 = {"number": spg1.no, "symbol": spg1.symbol}
-        spg2 = get_spacegroup(atoms_opt, 1e-2)
-        spg2 = {"number": spg2.no, "symbol": spg2.symbol}
-        spg5 = get_spacegroup(atoms_opt, 1e-5)
-        spg5 = {"number": spg5.no, "symbol": spg5.symbol}
-    except Exception as e:
-        raise e
-
-    d = {
-        "elements": list(series.atom_names_ini),
-        "nelements": len(series.atom_names_ini),
-        "elemcount": series.atom_counts_ini,
-        "species": list(
-            chain.from_iterable(
-                [elem] * count
-                for elem, count in zip(series.atom_names_ini, series.atom_counts.ini)
+    for key in matched_keys:
+        try:
+            assert ini_dict[key]["volume"] > 1e-5, "ini volume too small"
+            assert opt_dict[key]["volume"] > 1e-5, "opt volume too small"
+            assert ini_dict[key]["natoms"] == opt_dict[key]["natoms"], "natoms unmatch"
+            formula, reduced_formula = get_formula(ini_dict[key]["species"])
+            trajectory = {
+                "nframes": 2,
+                "cell": np.stack([d["cell"] for d in [ini_dict[key], opt_dict[key]]]),
+                "positions": np.stack(
+                    [d["positions"] for d in [ini_dict[key], opt_dict[key]]]
+                ),
+                "scaled_positions": np.stack(
+                    [d["scaled_positions"] for d in [ini_dict[key], opt_dict[key]]]
+                ),
+                "forces": np.stack(
+                    [d["forces"] for d in [ini_dict[key], opt_dict[key]]]
+                ),
+                "volume": [d["volume"] for d in [ini_dict[key], opt_dict[key]]],
+                "volume_per_atom": [
+                    d["volume_per_atom"] for d in [ini_dict[key], opt_dict[key]]
+                ],
+                "enthalpy": [d["enthalpy"] for d in [ini_dict[key], opt_dict[key]]],
+                "enthalpy_per_atom": [
+                    d["enthalpy_per_atom"] for d in [ini_dict[key], opt_dict[key]]
+                ],
+                "source_file": [
+                    d["source_file"] for d in [ini_dict[key], opt_dict[key]]
+                ],
+                "source_idx": [d["source_idx"] for d in [ini_dict[key], opt_dict[key]]],
+                "source_dir": opt_dict[key]["source_dir"],
+            }
+        except Exception as e:
+            print(e)
+            continue
+        else:
+            data = {
+                key: val
+                for key, val in opt_dict[key].items()
+                if key not in ["source_dir", "source_file", "source_idx"]
+            }
+            data.update(
+                {
+                    "formula": formula,
+                    "reduced_formula": reduced_formula,
+                    "pressure": pressure,
+                    "pressure_range": pressure_range,
+                    "trajectory": trajectory,
+                    "calyconfig": {"version": version, **inputdat},
+                    "dftconfig": [incar],
+                    "pseudopotential": potcar,
+                    "donator": donator,
+                    "deprecated": False,
+                    "deprecated_reason": "",
+                }
             )
-        ),
-        "formula": formula,
-        "reduced_formula": reduce_formula,
-        "natoms": len(atoms_ini),
-        "cell": atoms_opt.cell[:],
-        "positions": atoms_opt.positions,
-        "scaled_positions": atoms_opt.get_scaled_positions(),
-        "forces": np.zeros([len(atoms_ini), 3]) * np.nan,
-        "enthalpy": series.enthalpy_per_atom * len(atoms_ini),
-        "enthalpy_per_atom": series.enthalpy_per_atom,
-        "volume": volume,
-        "volume_per_atom": volume / len(atoms_ini),
-        "density": opt_density,
-        "clospack_volume": clospack_volume,
-        "clospack_volume_per_atom": clospack_volume / len(atoms_ini),
-        "clospack_density": clospack_density,
-        "pressure": series.pressure_x,
-        "pressure_range": {
-            "mid": "{:.1f}".format(series.pressure_interval.mid),
-            "length": "{:.1f}".format(series.pressure_interval.length),
-            "closed": series.pressure_interval.closed,  # left, *right, both, neither
-        },
-        "trajectory": {
-            "nframes": 2,
-            "cell": np.stack([atoms_ini.cell[:], atoms_opt.cell[:]]),
-            "positions": np.stack([atoms_ini.positions, atoms_opt.positions]),
-            "scaled_positions": np.stack(
-                [atoms_ini.get_scaled_positions(), atoms_opt.get_scaled_positions()]
-            ),
-            "forces": np.zeros([2, len(atoms_ini), 3]) * np.nan,
-            "volume": [atoms_ini.get_volume(), atoms_opt.get_volume()],
-            "enthalpy": [np.nan, series.enthalpy_per_atom * len(atoms_ini)],
-            "enthalpy_per_atom": [np.nan, series.enthalpy_per_atom],
-            "source": [ini_path, opt_path],
-            "source_idx": [ini_idx, opt_idx],
-            "source_dir": str(Path(ini_path).parent),
-        },
-        "calyconfig": calyconfig,
-        "dftconfig": [series.incar_x],
-        "pseudopotential": series.potcar_x.split("\n"),
-        "symmetry": {
-            "1e-1": spg1,
-            "1e-2": spg2,
-            "1e-5": spg5,
-        },
-        "donator": {"name": donator_dict[series.donator_x], "email": None},
-        "deprecated": False,
-        "deprecated_reason": "",
-    }
-    return d
-"""
+            yield data
 
 
-"""
-df = pd.read_feather("/home/share/calypsodata/cooked/20230601/final.feather")
-bins = np.arange(-0.1, 1000.2, 0.2)
-pressure_interval = pd.cut(df.pressure_x, bins)
-df["pressure_interval"] = pressure_interval
+def group_iniopt(root, level=2):
+    results_list = get_results_dir(root, level)
+    for results in tqdm(results_list):
+        basic_info = get_basic_info(root, results)
+        ini_dict = extract_ini_structures(root, results, basic_info)
+        opt_dict = extract_opt_structures(root, results, basic_info)
+        for datadict in match_iniopt(ini_dict, opt_dict, basic_info):
+            yield datadict
+
+
+def create_caly_id(calyidx):
+    material_id = f"caly-{calyidx}"
+    source = {"name": "calypso", "index": calyidx}
+    return material_id, source
+
+
+def wrapper_insert(idx, datadict):
+    material_id, source = create_caly_id(idx)
+    try:
+        symmetry = wrapped_get_symmetry_from_datadict(datadict)
+        datadict["symmetry"] = symmetry
+        datadict["material_id"] = material_id
+        datadict["source"] = source
+        rawrecord = RecordDict(datadict)
+        rawrecord.update_time()
+    except Exception:
+        return
+    else:
+        return rawrecord
 
 
 if __name__ == "__main__":
-    with open("out.log", "r") as f:
-        failed = [li.split()[-1] for li in f.readlines() if li.startswith("ERROR")]
-
-    processed = [int(p.stem) for p in Path("cache").glob("*.pkl")]
-    print(len(processed))
-
-    to_proc = sorted(list(set(range(len(df))) - set(processed)))
-    print(len(to_proc))
-
-    def wrapper_series2data(idx, series):
-        if series.donator_x == "debug":
-            return 1
-        if idx in processed:
-            return 1
-        try:
-            data = series2data(series)
-            pickle.dump(data, open(f"cache/{idx}.pkl", "wb"))
-            return 0
-        except Exception as e:
-            return f"ERROR {idx} : {e}"
-
-    res = Parallel(30, verbose=5, backend="multiprocessing")(
-        delayed(wrapper_series2data)(idx, ser)
-        for idx, ser in df.iloc[to_proc].iterrows()
-    )
-    print(res)
-"""
+    db = login(dotenv_path=".env-maintain")
+    # rawcol = db.get_collection("rawcol")
+    # cur_caly_max_idx = get_current_caly_max_index(rawcol)
+    # root = "/home/share/calypsodata/raw/20230602"
+    # level = 2
+    # rawrecord_list = Parallel(backend="multiprocessing")(
+    #     delayed(wrapper_insert)(cur_caly_max_idx + idx + 1, datadict)
+    #     for idx, datadict in enumerate(group_iniopt(root, level))
+    # )
+    # rawrecord_list = [rawcol for rawcol in rawrecord_list if rawcol is not None]
+    # rawcol.insert_many(rawrecord_list)
