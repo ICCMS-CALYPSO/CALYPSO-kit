@@ -258,6 +258,7 @@ key_func_map = {
     'ctrlrange': (SplitBlock, None),  # !!!!
     'maxnumatom': (int, 20),
     'vsc': (LogicLine(), False),
+    'vscenergy': (SplitLine(float), []),
     # surface reconstruction
     'capbondswithh': (LogicLine(), True),
     'ciffilepath': (str, None),
