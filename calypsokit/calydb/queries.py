@@ -153,131 +153,135 @@ class QueryTrajectory(UserDict):
         return item
 
 
-def pipe_undeprecated_record():
-    pipeline = [{"$match": {"deprecated": False}}]
-    return pipeline
+class Pipes:
+    @staticmethod
+    def undeprecated_record():
+        pipeline = [{"$match": {"deprecated": False}}]
+        return pipeline
 
-
-def pipe_group_task(lte: int = -1) -> list[dict[str, Any]]:
-    """Group task by trajectory.source_dir, then count number of not deprecated
-    structure, filter by lte.
-
-    Remember: One task may has more than one formual (VSC task).
-
-    Parameters
-    ----------
-    lte : int, optional
-        less or equal threshold, no limit if negtive by default -1
-
-    Returns
-    -------
-    pipline: list[dict[str, Any]]
-        pipline list for aggregate, new records with
-        {"_id": <source_dir>, "count": int, "ids": [_id, ...]}
-    """
-    pipeline: list[dict[str, Any]] = [
-        {"$match": {"deprecated": False}},
-        {
-            "$group": {
-                "_id": "$trajectory.source_dir",
-                "count": {"$sum": 1},
-                "ids": {"$push": "$_id"},
-            }
-        },
-    ]
-    if lte >= 0:
-        pipeline.append({"$match": {"count": {"$lte": lte}}})
-    return pipeline
-
-
-def pipe_group_task_formula() -> list[dict[str, Any]]:
-    """Group by task and formula"""
-    pipeline: list[dict[str, Any]] = [
-        {"$match": {"deprecated": False}},
-        {
-            "$group": {
-                "_id": {"task": "$trajectory.source_dir", "formula": "$formula"},
-                "count": {"$sum": 1},
-                "ids": {"$push": "$_id"},
-                "enth_list": {"$push": "$enthalpy_per_atom"},
-            }
-        },
-    ]
-    return pipeline
-
-
-def pipe_sort_enthalpy() -> list[dict[str, Any]]:
-    """sort enthalpy_per_atom by group of task and formula
-
-    Returns
-    -------
-    pipline: list[dict[str, Any]]
-        pipline list for aggregate, new records with
-        {"_id": <source_dir>, "sorted_ids": [_id, ...], "sorted_enth": [enth, ...]}
-    """
-    pipeline: list[dict[str, Any]] = [
-        {"$match": {"deprecated": False}},
-        # group by task, add 'ids' original _id list and 'enth_list'
-        {
-            "$group": {
-                "_id": {"task": "$trajectory.source_dir", "formula": "$formula"},
-                "ids": {"$push": "$_id"},
-                "enth_list": {"$push": "$enthalpy_per_atom"},
-            }
-        },
-        # zip orginal _id and enthalpy_per_atom together
-        {"$addFields": {"zipped": {"$zip": {"inputs": ["$ids", "$enth_list"]}}}},
-        # unwind {zipped: [_id, enth]} to each record
-        {"$unwind": "$zipped"},
-        # sort record by zipped.1 (i.e. enth) and ascending
-        {"$sort": {"zipped.1": 1}},
-        # group again, push original _id and enth seperately, but keep the relationship
-        {
-            "$group": {
-                "_id": "$_id",
-                "sorted_ids": {"$push": {"$arrayElemAt": ["$zipped", 0]}},
-                "sorted_enth": {"$push": {"$arrayElemAt": ["$zipped", 1]}},
-            }
-        },
-    ]
-    return pipeline
-
-
-def pipe_unique_records(fromcol="rawcol"):
-    pipeline = [
-        {
-            '$lookup': {
-                'from': f"{fromcol}",
-                'localField': '_id',
-                'foreignField': '_id',
-                'as': 'matched_docs',
-            }
-        },
-        # No neet to Filter the documents with matches, cause unwind will not output
-        # empty list by default
-        # {'$match': {'matched_docs': {'$ne': []}}},
-        {"$unwind": "$matched_docs"},
-        {
-            "$replaceRoot": {
-                "newRoot": {"$mergeObjects": [{"version": "$version"}, "$matched_docs"]}
-            }
-        },
-        {"$match": {"deprecated": False}},
-    ]
-    return pipeline
-
-
-def pipe_new_records(year, month, day, hour=0, minute=0, second=0):
-    pipeline = [
-        {
-            "$match": {
-                "last_updated_utc": {
-                    "$gt": datetime(year, month, day, hour, minute, second)
+    @staticmethod
+    def newer_records(year, month, day, hour=0, minute=0, second=0):
+        pipeline = [
+            {
+                "$match": {
+                    "last_updated_utc": {
+                        "$gt": datetime(year, month, day, hour, minute, second)
+                    }
                 }
             }
-        }
-    ]
-    return pipeline
+        ]
+        return pipeline
+
+    @staticmethod
+    def group_task(*, lte: int = -1) -> list[dict[str, Any]]:
+        """Group task by trajectory.source_dir, then count number of not deprecated
+        structure, filter by lte.
+
+        Remember: One task may has more than one formual (VSC task).
+
+        Parameters
+        ----------
+        lte : int, optional
+            less or equal threshold, no limit if negtive by default -1
+
+        Returns
+        -------
+        pipline: list[dict[str, Any]]
+            pipline list for aggregate, new records with
+            {"_id": <source_dir>, "count": int, "ids": [_id, ...]}
+        """
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {"source.name": "calypso"}},
+            {
+                "$group": {
+                    "_id": "$trajectory.source_dir",
+                    "count": {"$sum": 1},
+                    "ids": {"$push": "$_id"},
+                }
+            },
+        ]
+        if lte >= 0:
+            pipeline.append({"$match": {"count": {"$lte": lte}}})
+        return pipeline
+
+    @staticmethod
+    def group_task_formula() -> list[dict[str, Any]]:
+        """Group by task and formula"""
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {"deprecated": False}},
+            {
+                "$group": {
+                    "_id": {"task": "$trajectory.source_dir", "formula": "$formula"},
+                    "count": {"$sum": 1},
+                    "ids": {"$push": "$_id"},
+                    "enth_list": {"$push": "$enthalpy_per_atom"},
+                }
+            },
+        ]
+        return pipeline
+
+    @staticmethod
+    def sort_enthalpy() -> list[dict[str, Any]]:
+        """sort enthalpy_per_atom by group of task and formula
+
+        Returns
+        -------
+        pipline: list[dict[str, Any]]
+            pipline list for aggregate, new records with
+            {"_id": <source_dir>, "sorted_ids": [_id, ...], "sorted_enth": [enth, ...]}
+        """
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {"deprecated": False}},
+            # group by task, add 'ids' original _id list and 'enth_list'
+            {
+                "$group": {
+                    "_id": {"task": "$trajectory.source_dir", "formula": "$formula"},
+                    "ids": {"$push": "$_id"},
+                    "enth_list": {"$push": "$enthalpy_per_atom"},
+                }
+            },
+            # zip orginal _id and enthalpy_per_atom together
+            {"$addFields": {"zipped": {"$zip": {"inputs": ["$ids", "$enth_list"]}}}},
+            # unwind {zipped: [_id, enth]} to each record
+            {"$unwind": "$zipped"},
+            # sort record by zipped.1 (i.e. enth) and ascending
+            {"$sort": {"zipped.1": 1}},
+            # group again, push original _id and enth seperately, but keep related
+            {
+                "$group": {
+                    "_id": "$_id",
+                    "sorted_ids": {"$push": {"$arrayElemAt": ["$zipped", 0]}},
+                    "sorted_enth": {"$push": {"$arrayElemAt": ["$zipped", 1]}},
+                }
+            },
+        ]
+        return pipeline
+
+    @staticmethod
+    def unique_records(fromcol="rawcol"):
+        pipeline = [
+            {
+                '$lookup': {
+                    'from': f"{fromcol}",
+                    'localField': '_id',
+                    'foreignField': '_id',
+                    'as': 'matched_docs',
+                }
+            },
+            # No neet to Filter the documents with matches, cause unwind will not output
+            # empty list by default
+            # {'$match': {'matched_docs': {'$ne': []}}},
+            {"$unwind": "$matched_docs"},
+            {
+                "$replaceRoot": {
+                    "newRoot": {
+                        "$mergeObjects": [{"version": "$version"}, "$matched_docs"]
+                    }
+                }
+            },
+            {"$match": {"deprecated": False}},
+        ]
+        return pipeline
 
 
 def get_current_caly_max_index(collection) -> int:

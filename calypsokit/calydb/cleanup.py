@@ -1,34 +1,57 @@
-from calypsokit.calydb.queries import pipe_group_task, pipe_sort_enthalpy
+from datetime import datetime
+
+from calypsokit.calydb.queries import Pipes
 from calypsokit.utils.itertools import groupby_delta
 
 
 # 清理enthalpy=610612509的结构
-def pipe_deprecate_large_enthalpy():
-    pipeline = [
-        {"$match": {"deprecated": False, "enthalpy_per_atom": {"$gt": 610612508}}},
-        {
-            "$set": {
-                "deprecated": True,
-                "deprecated_reason": "error enthalpy : optimization fail",
-            }
-        },
-    ]
-    return pipeline
+def deprecate_large_enthalpy(collection):
+    fil = {"deprecated": False, "enthalpy_per_atom": {"$gt": 610612508}}
+    upd = {
+        "$set": {
+            "deprecated": True,
+            "deprecated_reason": "error enthalpy : optimization fail",
+        }
+    }
+    # Mark those as deprecated
+    collection.update_many(fil, upd)
+    # Check if there exist left
+    if collection.find_one(fil) is not None:
+        print("Still exist energy_per_atom larger than 610612508")
+    else:
+        print("Cleaned energy_per_atom larger than 610612508")
 
 
 # 清理每个任务少于lte(=10)个的结构（不考虑变组分）
-def pipe_deprecate_less_task(lte: int = 10):
-    pipeline = pipe_group_task(lte) + [
-        # {
-        #     "$set": {
-        #         "deprecated": True,
-        #         "deprecated_reason": f"number of extracted structure <= {lte}"
-        #         + " in this prediction task",
-        #     }
-        # },
-        # TODO: ERROR
-    ]
-    return pipeline
+def deprecate_less_task(collection, newerdate, lte: int = 10):
+    pipeline = Pipes.newer_records(*newerdate) + Pipes.group_task(lte=lte)
+    udp = {
+        "$set": {
+            "deprecated": True,
+            "deprecated_reason": f"number of extracted structure <= {lte}"
+            + " in this prediction task",
+        }
+    }
+    cursor = list(collection.aggregate(pipeline))
+    # Mark those not deprecated as deprecated
+    for record in cursor:
+        collection.update_many(
+            {"deprecated": "False", "_id": {"$in": record["ids"]}}, udp
+        )
+    # Check if there exist left
+    cleaned_flag = True
+    for record in cursor:
+        if (
+            collection.find_one({"deprecated": False, "_id": {"$in": record["ids"]}})
+            is not None
+        ):
+            print(f"Still exist uncleaned records: {record}")
+            cleaned_flag = False
+    if cleaned_flag:
+        print(
+            f"Cleaned task newer than ({datetime(*newerdate)}) "
+            f"which number of structure <= {lte}"
+        )
 
 
 # 清理每组任务每个分子式中能量很低的孤立结构（间隔超过delta=1eV）的结构
@@ -37,7 +60,7 @@ def clean_solitary_enth(col, delta=1.0):
         "deprecated": True,
         "deprecated_reason": "error enthalpy : solitary and too small",
     }
-    pipeline = pipe_sort_enthalpy()
+    pipeline = Pipes.sort_enthalpy()
     for record in col.aggregate(pipeline):
         naccumu = 0
         # 只检查相邻能量间隔为1eV的前5组
