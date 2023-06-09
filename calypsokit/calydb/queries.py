@@ -158,7 +158,8 @@ def pipe_undeprecated_record():
 
 
 def pipe_group_task(lte: int = -1) -> list[dict[str, Any]]:
-    """Group by task, then count number of not deprecated structure, filter by lte.
+    """Group task by trajectory.source_dir, then count number of not deprecated
+    structure, filter by lte.
 
     Remember: One task may has more than one formual (VSC task).
 
@@ -251,9 +252,15 @@ def pipe_unique_records(fromcol="rawcol"):
                 'as': 'matched_docs',
             }
         },
-        # Filter only the documents with matches
-        {'$match': {'matched_docs': {'$ne': []}}},
+        # No neet to Filter the documents with matches, cause unwind will not output
+        # empty list by default
+        # {'$match': {'matched_docs': {'$ne': []}}},
         {"$unwind": "$matched_docs"},
+        {
+            "$replaceRoot": {
+                "newRoot": {"$mergeObjects": [{"version": "$version"}, "$matched_docs"]}
+            }
+        },
         {"$match": {"deprecated": False}},
     ]
     return pipeline
