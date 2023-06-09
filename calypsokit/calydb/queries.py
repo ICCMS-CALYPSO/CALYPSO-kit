@@ -264,3 +264,26 @@ def pipe_unique_records(fromcol="rawcol"):
         {"$match": {"deprecated": False}},
     ]
     return pipeline
+
+
+def get_current_caly_max_index(collection) -> int:
+    """get max calypso index in the collection
+
+    max `source.index` in which `source.name == calypso`
+
+    Parameters
+    ----------
+    collection : collection
+        collection
+
+    Returns
+    -------
+    int
+        current max index
+    """
+    cur = collection.find({"source.name": "calypso"}).sort("source.index", -1).limit(1)
+    cur = list(cur)
+    if len(cur) == 0:
+        return 0
+    else:
+        return cur[0]["source"]["index"]
