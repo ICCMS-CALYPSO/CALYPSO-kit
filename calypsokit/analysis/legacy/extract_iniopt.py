@@ -3,6 +3,7 @@
 # Warning: Do not run this file unless you know what you're doing and have already
 # made the proper modification
 
+import pickle
 from itertools import chain
 from pathlib import Path
 from pprint import pprint
@@ -25,6 +26,7 @@ from calypsokit.calydb.record import RecordDict
 try:
     from calypsokit.analysis.legacy.contactbook import contactbook
 except ModuleNotFoundError as e:
+    print("ERROR: you do not have the contact book, cannot run this module")
     raise e
 
 
@@ -73,14 +75,15 @@ def get_basic_info(root, results_dir):
     potcar = []
     if len(incar_list) == 0:
         # os.system(f'echo "{results_dir}" >> {cwd}/noINCAR-record')
-        print(f"{results_dir} No INCAR record")
-        pressure = np.nan
-        incar = "NotFound"
+        raise FileNotFoundError(f"{results_dir} No INCAR record")
     else:
         with open(incar_list[-1], "r") as f:
             for line in f:
                 if line.strip().startswith("PSTRESS"):
                     pressure = float(line.split("=")[-1]) / 10  # kbar to GPa
+                    break
+            else:
+                raise ValueError(f"No PSTRESS in {incar_list[-1]}")
         with open(incar_list[-1], "r") as f:
             incar = f.read()
     if results_dir.parent.joinpath("OUTCAR").exists():
@@ -186,7 +189,7 @@ def extract_ini_structures(root, results_dir, basic_info):
                         raise ValueError("Volume too small")
                     if clospack_volume < 1e-5:
                         raise ValueError("Closepack Volume too small")
-                    natoms = sum(atom_counts)
+                    natoms = int(sum(atom_counts))
                     _id = f"{idx_pref}#{sid}"
                     struct[_id] = {
                         "elements": atom_names,
@@ -311,7 +314,7 @@ def extract_opt_structures(root, results_dir, basic_info):
                         raise ValueError("Volume too small")
                     if clospack_volume < 1e-5:
                         raise ValueError("Closepack Volume too small")
-                    natoms = sum(atom_counts)
+                    natoms = int(sum(atom_counts))
                     _id = f"{idx_pref}#{sid}"
                     struct[_id] = {
                         "elements": atom_names,
@@ -408,6 +411,12 @@ def match_iniopt(ini_dict, opt_dict, basic_info):
             yield data
 
 
+def check_basic_info(root, level=2):
+    results_list = get_results_dir(root, level)
+    for results in tqdm(results_list):
+        return get_basic_info(root, results)
+
+
 def group_iniopt(root, level=2):
     results_list = get_results_dir(root, level)
     for results in tqdm(results_list):
@@ -440,14 +449,29 @@ def wrapper_insert(idx, datadict):
 
 
 if __name__ == "__main__":
+    root = "/home/share/calypsodata/raw/20230608"
+    level = 8
     db = login(dotenv_path=".env-maintain")
-    # rawcol = db.get_collection("rawcol")
-    # cur_caly_max_idx = get_current_caly_max_index(rawcol)
-    # root = "/home/share/calypsodata/raw/20230602"
-    # level = 2
-    # rawrecord_list = Parallel(backend="multiprocessing")(
+    rawcol = db.get_collection("rawcol")
+    cur_caly_max_idx = get_current_caly_max_index(rawcol)
+    print(f"{cur_caly_max_idx=}")
+
+    # -- Check basic info --------------------------------
+    # check_basic_info(root, level)
+
+    # -- Find and update ---------------------------------
+    # rawrecord_list = Parallel(1, backend="multiprocessing")(
     #     delayed(wrapper_insert)(cur_caly_max_idx + idx + 1, datadict)
     #     for idx, datadict in enumerate(group_iniopt(root, level))
     # )
     # rawrecord_list = [rawcol for rawcol in rawrecord_list if rawcol is not None]
+    # print(len(rawrecord_list))
+    # with open(f"{root}/rawrecord.pkl", "wb") as f:
+    #     pickle.dump(rawrecord_list, f)
     # rawcol.insert_many(rawrecord_list)
+
+    # -- Insert from saved pkl ---------------------------
+    # with open(f"{root}/rawrecord.pkl", "rb") as f:
+    #     rawrecord_list = pickle.load(f)
+    # rawcol.insert_many(rawrecord_list)
+    # ----------------------------------------------------
