@@ -23,7 +23,8 @@ from calypsokit.calydb.queries import QueryStructure, pipe_group_task_formula
 # 5. If not matched, this one is added to the picked structures.
 # 6. Finally the picked structures are the uniqe structures.
 def find_unique(record_task_formula, col="rawcol", e_threshold=0.005, **match_kwargs):
-    db, col = login(col=col)
+    db = login()
+    col = db.get_collection(col)
     # task = record_task_formula["_id"]["task"]
     # formula = record_task_formula["_id"]["formula"]
     # print(task, formula, record_task_formula["count"])
@@ -71,7 +72,8 @@ if __name__ == '__main__':
     # pipeline = pipe_group_task_formula()
     # # pipline.append({"$match": {"count": {"$lt": 20}}})
     # # pipline.append({"$limit": 3})
-    # db, col = login(col="rawcol")
+    # db = login()
+    # col = db.get_collection("rawcol")
     # cur = list(col.aggregate(pipeline))
     # results = Parallel(backend="multiprocessing")(
     #     delayed(find_unique)(record_task_formula) for record_task_formula in tqdm(cur)
@@ -84,7 +86,8 @@ if __name__ == '__main__':
     # with open("unique.pkl", "rb") as f:
     #     unique_list = pickle.load(f)
     # # print(unique_list)
-    # db, uniqcol = login(col="uniqcol", dotenv_path=".env-maintain")
+    # db = login(dotenv_path=".env-maintain")
+    # uniqcol = db.get_collection("uniqcol")
     # uniqcol.insert_many(
     #     [{"_id": uniq_id, "version": 20230601} for uniq_id in unique_list]
     # )

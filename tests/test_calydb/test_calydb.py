@@ -13,7 +13,8 @@ from calypsokit.calydb.queries import QueryStructure, QueryTrajectory
 
 class TestCalyDB(unittest.TestCase):
     # WARNING! Never change this debugcollection
-    db, col = login(col="debugcol")
+    db = login()
+    col = db.get_collection("debugcol")
     # recordsample = RecordDict(
     # )
 

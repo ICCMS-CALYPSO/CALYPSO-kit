@@ -9,7 +9,8 @@ from calypsokit.calydb.login import login
 
 class TestCalyDBAnalysis(unittest.TestCase):
     # WARNING! Never change this debugcollection
-    db, col = login(col="debugcol")
+    db = login()
+    col = db.get_collection("debugcol")
 
     def setUp(self):
         self.col.delete_many({})

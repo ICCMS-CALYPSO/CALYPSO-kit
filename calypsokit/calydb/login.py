@@ -29,35 +29,36 @@ def fallback_encoder(value):
     return value
 
 
-def get_codec_options():
+class NumpyDatabase:
     numpy_codec = NumpyCodec()
     type_registry = TypeRegistry([numpy_codec], fallback_encoder=fallback_encoder)
+    codec_options: CodecOptions
     codec_options = CodecOptions(type_registry=type_registry, tz_aware=False)
-    return codec_options
+
+    def __init__(self, database):
+        self.database = database
+
+    def get_collection(self, collection, **kwargs):
+        collection = self.database.get_collection(
+            collection, codec_options=self.codec_options, **kwargs
+        )
+        return collection
 
 
-def get_collection(name, db):
-    codec_options = get_codec_options()
-    return db.get_collection(name, codec_options=codec_options)
-
-
-def login(addr=None, user=None, pwd=None, db=None, col=None, dotenv_path=None):
+def login(addr=None, user=None, pwd=None, db=None, dotenv_path=None):
     dotenv.load_dotenv(dotenv_path=dotenv_path, override=True)
     addr = os.environ.get('MONGODB_ADDR', None) if addr is None else addr
     user = os.environ.get('MONGODB_USER', None) if user is None else user
     pwd = os.environ.get('MONGODB_PWD', None) if pwd is None else pwd
     dbname = os.environ.get('MONGODB_DATABASE', None) if db is None else db
-    colname = os.environ.get('MONGODB_COLLECTION', None) if col is None else col
 
-    for key in (addr, user, pwd, dbname, colname):
+    for key in (addr, user, pwd, dbname):
         if key is None:
             raise ValueError(f"{key} not configured in .env file")
 
     client = pymongo.MongoClient(f"mongodb://{user}:{pwd}@{addr}")
-    db = client[dbname]
-    col = get_collection(colname, db)
-
-    return db, col
+    db = NumpyDatabase(client[dbname])
+    return db
 
 
 def maintain_indexes(col) -> dict:
