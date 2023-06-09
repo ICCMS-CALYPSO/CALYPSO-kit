@@ -1,4 +1,5 @@
 from collections import UserDict
+from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
@@ -262,6 +263,19 @@ def pipe_unique_records(fromcol="rawcol"):
             }
         },
         {"$match": {"deprecated": False}},
+    ]
+    return pipeline
+
+
+def pipe_new_records(year, month, day, hour=0, minute=0, second=0):
+    pipeline = [
+        {
+            "$match": {
+                "last_updated_utc": {
+                    "$gt": datetime(year, month, day, hour, minute, second)
+                }
+            }
+        }
     ]
     return pipeline
 
