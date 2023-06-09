@@ -23,7 +23,7 @@ def get_density_clospack_density(
     (density, volume, clospack_density, clospack_volume)
         density and volume, unit g/cm^3 and A^3
     """
-    mass: float = sum(atomic_masses[atomic_numbers[symbol]] for symbol in species)
+    mass = float(sum(atomic_masses[atomic_numbers[symbol]] for symbol in species))
     # g/mol
     volume: float = abs(np.linalg.det(cell))  # A^3
     gmol2gcm3 = 1 / 0.602214076

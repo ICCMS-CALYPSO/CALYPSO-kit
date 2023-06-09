@@ -96,7 +96,7 @@ def SplitBlock(key, block, parms):
         try:
             block = np.asarray([line.split() for line in block]).astype(int)
             layertype = [
-                {u: v for u, v in zip(parms['nameofatoms'], layer)}
+                {u: int(v) for u, v in zip(parms['nameofatoms'], layer)}
                 for n_layer, layer in zip(range(parms['multilayer']), block)
             ]
             return layertype
@@ -108,7 +108,9 @@ def SplitBlock(key, block, parms):
         # e.g.  {'Li': (1, 4), 'Mg': (1, 4)}
         try:
             block = np.asarray([line.split() for line in block]).astype(int)
-            ctrlrange = {u: (v[0], v[1]) for u, v in zip(parms['nameofatoms'], block)}
+            ctrlrange = {
+                u: [int(v[0]), int(v[1])] for u, v in zip(parms['nameofatoms'], block)
+            }
             return ctrlrange
         except ValueError as e:
             raise ValueError('CtrlRange Error: %s' % (e))
@@ -163,12 +165,12 @@ def SplitBlock(key, block, parms):
                 for line in block
             ]
             coordinate_number = {
-                (atomic_numbers[center_atom], atomic_numbers[neighbor_atom]): (
-                    ini_coord_num,
-                    max_coord_num,
-                    min_radius,
-                    max_radius,
-                )
+                (atomic_numbers[center_atom], atomic_numbers[neighbor_atom]): [
+                    int(ini_coord_num),
+                    int(max_coord_num),
+                    float(min_radius),
+                    float(max_radius),
+                ]
                 for (
                     center_atom,
                     neighbor_atom,
