@@ -6,6 +6,19 @@ from calypsokit.utils.itertools import groupby_delta
 
 # 清理enthalpy=610612509的结构
 def deprecate_large_enthalpy(collection):
+    """mark those energy_per_atom > 610612508 as deprecated
+
+    Will auto-check after run
+
+    Examples
+    --------
+    >>> col: pymongo.collection.Collection
+    >>> deprecate_large_enthalpy(col)
+
+    Parameters
+    ----------
+    collection : collection
+    """
     fil = {"deprecated": False, "enthalpy_per_atom": {"$gt": 610612508}}
     upd = {
         "$set": {
@@ -24,6 +37,25 @@ def deprecate_large_enthalpy(collection):
 
 # 清理每个任务少于lte(=10)个的结构（不考虑变组分）
 def deprecate_less_task(collection, newerdate, lte: int = 10):
+    """mark those number structures in one task <= `lte` as deprecated
+
+    Will auto-check after run
+
+    Examples
+    --------
+    >>> col: pymongo.collection.Collection
+    >>> newerdate = (2023, 1, 1)
+    >>> lte = 10
+    >>> deprecate_less_task(col, newerdate, 10)
+
+    Parameters
+    ----------
+    collection : pymongo.collection.Collection
+    newerdate : tuple
+        utc date, (year, month, day, hour, minute, second), 0 is filled from right.
+    lte : int, optional
+        <= threshold, by default 10
+    """
     pipeline = Pipes.newer_records(*newerdate) + Pipes.group_task(lte=lte)
     udp = {
         "$set": {
@@ -36,7 +68,7 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
     # Mark those not deprecated as deprecated
     for record in cursor:
         collection.update_many(
-            {"deprecated": "False", "_id": {"$in": record["ids"]}}, udp
+            {"deprecated": False, "_id": {"$in": record["ids"]}}, udp
         )
     # Check if there exist left
     cleaned_flag = True
@@ -55,13 +87,13 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
 
 
 # 清理每组任务每个分子式中能量很低的孤立结构（间隔超过delta=1eV）的结构
-def clean_solitary_enth(col, delta=1.0):
+def clean_solitary_enth(collection, delta=1.0):
     update_dict = {
         "deprecated": True,
         "deprecated_reason": "error enthalpy : solitary and too small",
     }
     pipeline = Pipes.sort_enthalpy()
-    for record in col.aggregate(pipeline):
+    for record in collection.aggregate(pipeline):
         naccumu = 0
         # 只检查相邻能量间隔为1eV的前5组
         for ene_group in list(groupby_delta(record["sorted_enth"], delta))[:5]:
@@ -70,6 +102,7 @@ def clean_solitary_enth(col, delta=1.0):
                 break
             elif len(ene_group) == 1:  # 孤立组，需要删除
                 solitary_id = record["sorted_ids"][naccumu - 1]
+                print(record["_id"])
                 yield (solitary_id, update_dict)
                 # col.update_one(
                 #     {"_id": record["sorted_ids"][naccumu - 1]},
