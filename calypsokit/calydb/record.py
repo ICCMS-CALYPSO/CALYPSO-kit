@@ -59,7 +59,7 @@ class RecordDict(BaseRecordDict):
                 "volume":                   [],     # np.ndarray, A^3
                 "enthalpy":                 [],     # np.ndarray, eV
                 "enthalpy_per_atom":        [],     # np.ndarray, eV
-                "source":                   [],     # source path of each frame
+                "source_file":              [],     # source path of each frame
                 "source_idx":               [],     # index in each source
                 "source_dir":               "",     # source dir
             },
