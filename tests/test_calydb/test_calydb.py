@@ -93,13 +93,17 @@ class TestCalyDB(unittest.TestCase):
     def test_08_QueryStructure(self):
         rawcol = self.db.get_collection("rawcol")
         qs = QueryStructure(rawcol, trajectory=False, type="pmg")
-        self.assertTrue(isinstance(qs.find_one({})[0], Structure))
+        self.assertTrue(isinstance(qs.find_one({})["_structure_"], Structure))
         qs = QueryStructure(rawcol, trajectory=False, type="ase")
-        self.assertTrue(isinstance(qs.find_one({})[0], Atoms))
+        self.assertTrue(isinstance(qs.find_one({})["_structure_"], Atoms))
         qs = QueryStructure(rawcol, trajectory=True, type="pmg")
-        self.assertTrue(isinstance(qs.find_one({})[0][0], Structure))
+        self.assertTrue(isinstance(qs.find_one({})["_structure_"][0], Structure))
         qs = QueryStructure(rawcol, trajectory=True, type="ase")
-        self.assertTrue(isinstance(qs.find_one({})[0][0], Atoms))
+        self.assertTrue(isinstance(qs.find_one({})["_structure_"][0], Atoms))
+        # ------------------------------------------------------------------------
+        projection = {"enthalpy_per_atom": 1}
+        qs = QueryStructure(rawcol, projection, trajectory=False, type="pmg")
+        self.assertTrue(isinstance(qs.find_one({})["enthalpy_per_atom"], float))
 
     def test_09_readout_cdvae(self):
         rawcol = self.db.get_collection("rawcol")

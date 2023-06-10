@@ -18,13 +18,12 @@ class ReadOut:
         qs = QueryStructure(rawcol, projection=projection, type="ase")
 
         ser_list = []
-        for item in qs.find({"_id": {"$in": ids}}):
-            atoms = item[0]
-            properties = item[1]
+        for record in qs.find({"_id": {"$in": ids}}):
+            atoms = record["_structure_"]
             with io.BytesIO() as buffer, redirect_stdout(buffer):
                 write('-', atoms, format='cif')
                 cif = buffer.getvalue().decode()
-            data = {key: properties[key] for key in projection.keys()}
+            data = {key: record[key] for key in projection.keys()}
             data["cif"] = cif
             series = pd.Series(data)
             ser_list.append(series)

@@ -10,8 +10,11 @@ from pymatgen.core.structure import Structure
 class QueryStructure(UserDict):
     """Query and cache structure or trajectory in this dict
 
-    Item as {ObjectId: (structure|trajectory, properties)}.
+    Item as {ObjectId: {"_id": ..., "_structure_": ..., ...}}.
     The key is bson ObjectId.
+
+    Call QueryStructure(...)[<_id>] will first find the cached dict, then call
+    find_one(_id), return None if nothing is found.
 
     Examples
     --------
@@ -19,27 +22,27 @@ class QueryStructure(UserDict):
     >>> col: collection
     >>> qs = QueryStructure(col)
     >>> qs.find_one()
-    (<pymatgen structure>, {"_id": <id>, ...})
+    {..., "_structure_": <one pmg structure>}
 
     Query and output as Generator
     >>> for item in qs.find({}):
     ...     print(item)
     ...     break
-    (<pymatgen structure>, {"_id": <id>, ...})
+    {..., "_structure_": <one pmg structure>}
 
     Query structure and other properties, output ase-type
     >>> col: collection
     >>> projection = {"enthalpy_per_atom": 1}
     >>> qs = QueryStructure(col, projection, type="ase")
     >>> qs.find_one()
-    (<ase Atoms>, {"_id": <id>, "enthalpy_per_atom": <enth>, ...})
+    {..., "_structure_": <one ase structure>, "enthalpy_per_atom": <enth>}
 
     Query trajectory and other properties, output ase-type list
     >>> col: collection
     >>> projection = {"enthalpy_per_atom": 1}
     >>> qs = QueryStructure(col, projection, trajectory=True, type="ase")
     >>> qs.find_one()
-    ([<ase Atoms>, ...], {"_id": <id>, "enthalpy_per_atom": <enth>, ...})
+    {..., "_structure_": <list of ase structures>, "enthalpy_per_atom": <enth>}
 
     """
 
@@ -86,22 +89,16 @@ class QueryStructure(UserDict):
 
         Returns
         -------
-        structure: Structure
-        properties: dict
-
-        Raises
-        ------
-        KeyError
-            Cannot find any record in the collection.
+        record : dict or None, {..., "_structure_": <one structure or list>}
         """
         record = self.col.find_one(filter, self.projection)
         if record is not None:
             if record["_id"] not in self.data:
-                structure = self.record2structure(record)  # structure or trajectory
-                self.data[record["_id"]] = (structure, record)
+                record["_structure_"] = self.record2structure(record)
+                self.data[record["_id"]] = record
             return self.data[record["_id"]]
         else:
-            raise KeyError(f"Cannot find record which satisfy this filter : {filter}")
+            return None
 
     def find(self, filter: dict):
         """find many sturctures
@@ -113,14 +110,13 @@ class QueryStructure(UserDict):
 
         Yields
         ------
-        structure: Structure
-        properties: dict
+        record : dict or None, {..., "_structure_": <one structure or list>}
         """
         cursor = self.col.find(filter, self.projection)
         for record in cursor:
             if record["_id"] not in self.data:
-                structure = self.record2structure(record)  # structure or trajectory
-                self.data[record["_id"]] = (structure, record)
+                record["_structure_"] = self.record2structure(record)
+                self.data[record["_id"]] = record
             yield self.data[record["_id"]]
 
     def __getitem__(self, _id: ObjectId):
