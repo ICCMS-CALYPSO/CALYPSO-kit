@@ -5,13 +5,14 @@ from pprint import pprint
 import numpy as np
 import pandas as pd
 from ase import Atoms
-from pymongo.errors import DuplicateKeyError
 from pymatgen.core.structure import Structure
+from pymongo.errors import DuplicateKeyError
 
 from calypsokit.calydb.login import login, maintain_indexes
-from calypsokit.calydb.record import RecordDict
+from calypsokit.calydb.patch import RawRecordPatcher
 from calypsokit.calydb.queries import QueryStructure
 from calypsokit.calydb.readout import ReadOut
+from calypsokit.calydb.record import RecordDict
 
 
 class TestCalyDB(unittest.TestCase):
@@ -104,6 +105,7 @@ class TestCalyDB(unittest.TestCase):
         projection = {"enthalpy_per_atom": 1}
         qs = QueryStructure(rawcol, projection, trajectory=False, type="pmg")
         self.assertTrue(isinstance(qs.find_one({})["enthalpy_per_atom"], float))
+        # print(qs.find_one({})["_structure_"].lattice.matrix.T)
 
     def test_09_readout_cdvae(self):
         rawcol = self.db.get_collection("rawcol")
@@ -111,3 +113,11 @@ class TestCalyDB(unittest.TestCase):
         readout = ReadOut()
         df = readout.unique2cdvae(rawcol, uniqcol, debug=10)
         self.assertEqual(len(df), 10)
+
+    def test_10_RecordPatcher(self):
+        rawcol = self.db.get_collection("rawcol")
+        patcher = RawRecordPatcher(rawcol)
+        sample_rec = rawcol.find_one({"deprecated": True}, {"_id": 1})
+        self.assertTrue(isinstance(patcher.get_update_dict(sample_rec["_id"]), dict))
+        # pprint(patcher.get_update_dict(sample_rec["_id"]))
+        # patcher.patch(sample_rec["_id"])
