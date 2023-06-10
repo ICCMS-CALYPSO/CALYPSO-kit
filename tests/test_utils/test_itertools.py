@@ -16,3 +16,6 @@ class TestIterTools(unittest.TestCase):
             groupby_delta(it, 0.1), [(1.0, 1.04, 1.1), (3.1, 3.14), (3.4,)]
         ):
             self.assertTrue(np.allclose(i, target))
+        it = []
+        for i in groupby_delta(it, 1):
+            print(i)

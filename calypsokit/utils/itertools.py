@@ -30,6 +30,7 @@ class groupby_delta:
 
     def __next__(self):
         group = []
+        self.final_left = []
         for a, b in self.it:
             if len(group) == 0:
                 group.append(a)
