@@ -4,11 +4,14 @@ from pprint import pprint
 
 import numpy as np
 import pandas as pd
+from ase import Atoms
 from pymongo.errors import DuplicateKeyError
+from pymatgen.core.structure import Structure
 
 from calypsokit.calydb.login import login, maintain_indexes
 from calypsokit.calydb.record import RecordDict
 from calypsokit.calydb.queries import QueryStructure
+from calypsokit.calydb.readout import ReadOut
 
 
 class TestCalyDB(unittest.TestCase):
@@ -88,20 +91,19 @@ class TestCalyDB(unittest.TestCase):
         self.assertTrue(index.get("deprecated_1", False))
 
     def test_08_QueryStructure(self):
-        return
-        # qs = QueryStructure(
-        #     self.db.get_collection("rawcol"), trajectory=False, type="pmg"
-        # )
-        # qs = QueryStructure(
-        #     self.db.get_collection("rawcol"), trajectory=False, type="ase"
-        # )
-        # qs = QueryStructure(
-        #     self.db.get_collection("rawcol"), trajectory=True, type="pmg"
-        # )
-        # qs = QueryStructure(
-        #     self.db.get_collection("rawcol"), trajectory=True, type="ase"
-        # )
-        # print(qs.find_one({}))
-        # for i in qs.find({}):
-        #     print(i)
-        #     break
+        rawcol = self.db.get_collection("rawcol")
+        qs = QueryStructure(rawcol, trajectory=False, type="pmg")
+        self.assertTrue(isinstance(qs.find_one({})[0], Structure))
+        qs = QueryStructure(rawcol, trajectory=False, type="ase")
+        self.assertTrue(isinstance(qs.find_one({})[0], Atoms))
+        qs = QueryStructure(rawcol, trajectory=True, type="pmg")
+        self.assertTrue(isinstance(qs.find_one({})[0][0], Structure))
+        qs = QueryStructure(rawcol, trajectory=True, type="ase")
+        self.assertTrue(isinstance(qs.find_one({})[0][0], Atoms))
+
+    def test_09_readout_cdvae(self):
+        rawcol = self.db.get_collection("rawcol")
+        uniqcol = self.db.get_collection("uniqcol")
+        readout = ReadOut()
+        df = readout.unique2cdvae(rawcol, uniqcol, debug=10)
+        self.assertEqual(len(df), 10)
