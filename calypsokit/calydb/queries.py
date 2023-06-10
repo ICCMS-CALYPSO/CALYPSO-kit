@@ -1,13 +1,13 @@
 from collections import UserDict
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from bson import ObjectId
 from pymatgen.core.structure import Structure
 
 
 class QueryStructure(UserDict):
-    def __init__(self, collection, projection: dict = {}):
+    def __init__(self, collection, projection: Optional[dict] = {}):
         """Query and cache pymatgen Structure in this dict
 
         i.e. same as the final structure in the trajectory.
@@ -18,17 +18,22 @@ class QueryStructure(UserDict):
         ----------
         collection : pymongo.collection.Collection
             pymongo collection to query from.
-        projection: dict
-
+        projection: Optional[dict]
+            query all info to properties if None, otherwise query the given projection
         """
         super().__init__()
         self.col = collection
-        self.projection = projection | {
-            "_id": 1,
-            "species": 1,
-            "cell": 1,
-            "positions": 1,
-        }
+        if projection is None:
+            self.projection = {}
+        elif isinstance(projection, dict):
+            self.projection = projection | {
+                "_id": 1,
+                "species": 1,
+                "cell": 1,
+                "positions": 1,
+            }
+        else:
+            raise ValueError("projection must be a dict or None")
 
     def find_one(self, filter: dict):
         """find one structure
@@ -101,10 +106,20 @@ class QueryStructure(UserDict):
 
 
 class QueryTrajectory(UserDict):
-    def __init__(self, collection, projection: dict = {}):
+    def __init__(self, collection, projection: Optional[dict] = {}):
         super().__init__()
         self.col = collection
-        self.projection = projection | {"_id": 1, "species": 1, "trajectory": 1}
+        if projection is None:
+            self.projection = {}
+        elif isinstance(projection, dict):
+            self.projection = projection | {
+                "_id": 1,
+                "species": 1,
+                "cell": 1,
+                "positions": 1,
+            }
+        else:
+            raise ValueError("projection must be a dict or None")
 
     def find_one(self, filter: dict):
         record = self.col.find_one(filter, self.projection)
@@ -161,15 +176,7 @@ class Pipes:
 
     @staticmethod
     def newer_records(newerdate):
-        pipeline = [
-            {
-                "$match": {
-                    "last_updated_utc": {
-                        "$gt": datetime(*newerdate)
-                    }
-                }
-            }
-        ]
+        pipeline = [{"$match": {"last_updated_utc": {"$gt": datetime(*newerdate)}}}]
         return pipeline
 
     @staticmethod
