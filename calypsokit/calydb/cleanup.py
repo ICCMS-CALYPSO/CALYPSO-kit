@@ -131,3 +131,44 @@ def clean_solitary_enth(collection, newerdate=None, delta=1.0):
                     {"_id": record["sorted_ids"][naccumu - 1]},
                     {"$set": update_dict},
                 )
+
+
+def clean_deprecated_unique(rawcol, uniqcol):
+    """remove records marked deprecated in <rawcol> which still in <uniqcol>
+
+    Examples
+    --------
+    >>> rawcol, uniqcol
+    >>> clean_deprecated_unique(rawcol, uniqcol)
+
+    Parameters
+    ----------
+    rawcol : pymongo.collection.Collection
+    uniqcol : pymongo.collection.Collection
+    """
+    uniqcolname = uniqcol.name
+    pipeline = [
+        {"$match": {"deprecated": True}},
+        {"$limit": 10},
+        {"$project": {"_id": 1}},
+        {
+            "$lookup": {
+                "from": uniqcolname,
+                "localField": "_id",
+                "foreignField": "_id",
+                "as": "matched_id",
+            }
+        },  # {"_id": ..., "matched_id": [...]}
+        {"$unwind": "$matched_id"},
+    ]
+    deprecated_in_uniq = [
+        record["matched_id"]["_id"] for record in rawcol.aggregate(pipeline)
+    ]
+    if len(deprecated_in_uniq) == 0:
+        print("Nothing to clean")
+    else:
+        print(
+            f"{len(deprecated_in_uniq)} deprecated records will be removed "
+            f"from col: {uniqcol.name}"
+        )
+        uniqcol.delete_many({"_id": {"$in": deprecated_in_uniq}})
