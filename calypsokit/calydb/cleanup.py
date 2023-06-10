@@ -56,7 +56,7 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
     lte : int, optional
         <= threshold, by default 10
     """
-    pipeline = Pipes.newer_records(*newerdate) + Pipes.group_task(lte=lte)
+    pipeline = Pipes.newer_records(newerdate) + Pipes.group_task(lte=lte)
     udp = {
         "$set": {
             "deprecated": True,
@@ -87,12 +87,15 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
 
 
 # 清理每组任务每个分子式中能量很低的孤立结构（间隔超过delta=1eV）的结构
-def clean_solitary_enth(collection, delta=1.0):
+def clean_solitary_enth(collection, newerdate=None, delta=1.0):
     update_dict = {
         "deprecated": True,
         "deprecated_reason": "error enthalpy : solitary and too small",
     }
-    pipeline = Pipes.sort_enthalpy()
+    pipeline = []
+    if newerdate is not None:
+        pipeline += Pipes.newer_records(newerdate)
+    pipeline += Pipes.sort_enthalpy()
     for record in collection.aggregate(pipeline):
         naccumu = 0
         # 只检查相邻能量间隔为1eV的前5组
@@ -101,10 +104,10 @@ def clean_solitary_enth(collection, delta=1.0):
             if len(ene_group) >= 10:  # 若出现连续较长的组，则不再检查后面的组
                 break
             elif len(ene_group) == 1:  # 孤立组，需要删除
-                solitary_id = record["sorted_ids"][naccumu - 1]
-                print(record["_id"])
-                yield (solitary_id, update_dict)
-                # col.update_one(
-                #     {"_id": record["sorted_ids"][naccumu - 1]},
-                #     {"$set": update_dict},
-                # )
+                # solitary_id = record["sorted_ids"][naccumu - 1]
+                # print(record["_id"])
+                # yield (solitary_id, update_dict)
+                collection.update_one(
+                    {"_id": record["sorted_ids"][naccumu - 1]},
+                    {"$set": update_dict},
+                )

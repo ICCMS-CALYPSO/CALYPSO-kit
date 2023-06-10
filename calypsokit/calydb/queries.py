@@ -160,12 +160,12 @@ class Pipes:
         return pipeline
 
     @staticmethod
-    def newer_records(year, month, day, hour=0, minute=0, second=0):
+    def newer_records(newerdate):
         pipeline = [
             {
                 "$match": {
                     "last_updated_utc": {
-                        "$gt": datetime(year, month, day, hour, minute, second)
+                        "$gt": datetime(*newerdate)
                     }
                 }
             }
@@ -191,7 +191,7 @@ class Pipes:
             {"_id": <source_dir>, "count": int, "ids": [_id, ...]}
         """
         pipeline: list[dict[str, Any]] = [
-            {"$match": {"source.name": "calypso"}},
+            # {"$match": {"source.name": "calypso"}},
             {
                 "$group": {
                     "_id": "$trajectory.source_dir",
@@ -230,16 +230,7 @@ class Pipes:
             pipline list for aggregate, new records with
             {"_id": <source_dir>, "sorted_ids": [_id, ...], "sorted_enth": [enth, ...]}
         """
-        pipeline: list[dict[str, Any]] = [
-            {"$match": {"deprecated": False}},
-            # group by task, add 'ids' original _id list and 'enth_list'
-            {
-                "$group": {
-                    "_id": {"task": "$trajectory.source_dir", "formula": "$formula"},
-                    "ids": {"$push": "$_id"},
-                    "enth_list": {"$push": "$enthalpy_per_atom"},
-                }
-            },
+        pipeline: list[dict[str, Any]] = Pipes.group_task_formula() + [
             # zip orginal _id and enthalpy_per_atom together
             {"$addFields": {"zipped": {"$zip": {"inputs": ["$ids", "$enth_list"]}}}},
             # unwind {zipped: [_id, enth]} to each record
