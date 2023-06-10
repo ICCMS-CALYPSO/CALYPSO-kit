@@ -52,7 +52,7 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
     ----------
     collection : pymongo.collection.Collection
     newerdate : tuple
-        utc date, (year, month, day, hour, minute, second), 0 is filled from right.
+        utc date, (year, month, day, hour, minute, second, ...)
     lte : int, optional
         <= threshold, by default 10
     """
@@ -88,6 +88,26 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
 
 # 清理每组任务每个分子式中能量很低的孤立结构（间隔超过delta=1eV）的结构
 def clean_solitary_enth(collection, newerdate=None, delta=1.0):
+    """mark those solitary energy structure as deprecated
+
+    Filter the newer (if do) and not deprecated records, group them by task and
+    formula and sort group by enthalpy_per_atom (see Pipes.sort_enthalpy). Then
+    find the solitary one accroding to `delta`, and mark it deprecated.
+
+    Examples
+    --------
+    >>> col: pymongo.collection.Collection
+    >>> clean_solitary_enth(col, (2023, 1, 1), 1.0)
+
+    Parameters
+    ----------
+    collection : pymongo.collection.Collection
+    newerdate : tuple, optional
+        utc date, (year, month, day, hour, minute, second, ...), None for not filter
+        'last_updated_utc'
+    delta : float, optional
+        determine solitary by energy delta, by default 1.0
+    """
     update_dict = {
         "deprecated": True,
         "deprecated_reason": "error enthalpy : solitary and too small",
