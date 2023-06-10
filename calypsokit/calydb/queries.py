@@ -127,9 +127,9 @@ class QueryStructure(UserDict):
 
     def record2structure(self, record):
         if self.trajectory:
-            species = record.pop("species")
-            traj_cell = record["trajectory"].pop("cell")
-            traj_pos = record["trajectory"].pop("positions")
+            species = record["species"]
+            traj_cell = record["trajectory"]["cell"]
+            traj_pos = record["trajectory"]["positions"]
             if self.type == "pmg":
                 trajectory = [
                     self._build_pmg(species, cell, positions)
@@ -143,9 +143,9 @@ class QueryStructure(UserDict):
                 ]
                 return trajectory
         else:
-            species = record.pop("species")
-            cell = record.pop("cell")
-            positions = record.pop("positions")
+            species = record["species"]
+            cell = record["cell"]
+            positions = record["positions"]
             if self.type == "pmg":
                 return self._build_pmg(species, cell, positions)
             elif self.type == "ase":
