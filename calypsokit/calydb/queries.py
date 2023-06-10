@@ -2,17 +2,49 @@ from collections import UserDict
 from datetime import datetime
 from typing import Any, Optional
 
+from ase import Atoms
 from bson import ObjectId
 from pymatgen.core.structure import Structure
 
 
 class QueryStructure(UserDict):
-    def __init__(self, collection, projection: Optional[dict] = {}):
-        """Query and cache pymatgen Structure in this dict
+    """Query and cache structure or trajectory in this dict
 
-        i.e. same as the final structure in the trajectory.
+    Item as {ObjectId: (structure|trajectory, properties)}.
+    The key is bson ObjectId.
 
-        Item as {ObjectId: (Structure, properties)}. The key is bson ObjectId.
+    Examples
+    --------
+    Only query structure and output pymatgen-type
+    >>> col: collection
+    >>> qs = QueryStructure(col)
+    >>> qs.find_one()
+    (<pymatgen structure>, {"_id": <id>, ...})
+
+    Query and output as Generator
+    >>> for item in qs.find({}):
+    ...     print(item)
+    ...     break
+    (<pymatgen structure>, {"_id": <id>, ...})
+
+    Query structure and other properties, output ase-type
+    >>> col: collection
+    >>> projection = {"enthalpy_per_atom": 1}
+    >>> qs = QueryStructure(col, projection, type="ase")
+    >>> qs.find_one()
+    (<ase Atoms>, {"_id": <id>, "enthalpy_per_atom": <enth>, ...})
+
+    Query trajectory and other properties, output ase-type list
+    >>> col: collection
+    >>> projection = {"enthalpy_per_atom": 1}
+    >>> qs = QueryStructure(col, projection, trajectory=True, type="ase")
+    >>> qs.find_one()
+    ([<ase Atoms>, ...], {"_id": <id>, "enthalpy_per_atom": <enth>, ...})
+
+    """
+
+    def __init__(self, collection, projection={}, trajectory=False, type="pmg"):
+        """Init this dict
 
         Parameters
         ----------
@@ -20,6 +52,11 @@ class QueryStructure(UserDict):
             pymongo collection to query from.
         projection: Optional[dict]
             query all info to properties if None, otherwise query the given projection
+        trajectory: Optional[bool], default False
+            return trajectory structure list instead
+        type: {'pmg', 'ase'}, default 'pmg'
+            type of returned structure, 'pmg' for pymatgen Structure,
+            'ase' for ase Atoms
         """
         super().__init__()
         self.col = collection
@@ -32,10 +69,14 @@ class QueryStructure(UserDict):
                 "cell": 1,
                 "positions": 1,
             }
+            if trajectory:
+                self.projection["trajectory"] = 1
         else:
             raise ValueError("projection must be a dict or None")
+        self.trajectory = trajectory
+        self.type = type
 
-    def find_one(self, filter: dict):
+    def find_one(self, filter: dict = {}):
         """find one structure
 
         Parameters
@@ -56,15 +97,7 @@ class QueryStructure(UserDict):
         record = self.col.find_one(filter, self.projection)
         if record is not None:
             if record["_id"] not in self.data:
-                lattice = record.pop("cell")
-                species = record.pop("species")
-                coords = record.pop("positions")
-                structure = Structure(
-                    lattice=lattice,
-                    species=species,
-                    coords=coords,
-                    coords_are_cartesian=True,
-                )
+                structure = self.record2structure(record)  # structure or trajectory
                 self.data[record["_id"]] = (structure, record)
             return self.data[record["_id"]]
         else:
@@ -86,15 +119,7 @@ class QueryStructure(UserDict):
         cursor = self.col.find(filter, self.projection)
         for record in cursor:
             if record["_id"] not in self.data:
-                lattice = record.pop("cell")
-                species = record.pop("species")
-                coords = record.pop("positions")
-                structure = Structure(
-                    lattice=lattice,
-                    species=species,
-                    coords=coords,
-                    coords_are_cartesian=True,
-                )
+                structure = self.record2structure(record)  # structure or trajectory
                 self.data[record["_id"]] = (structure, record)
             yield self.data[record["_id"]]
 
@@ -104,68 +129,39 @@ class QueryStructure(UserDict):
             item = self.find_one({"_id": _id})
         return item
 
-
-class QueryTrajectory(UserDict):
-    def __init__(self, collection, projection: Optional[dict] = {}):
-        super().__init__()
-        self.col = collection
-        if projection is None:
-            self.projection = {}
-        elif isinstance(projection, dict):
-            self.projection = projection | {
-                "_id": 1,
-                "species": 1,
-                "cell": 1,
-                "positions": 1,
-            }
-        else:
-            raise ValueError("projection must be a dict or None")
-
-    def find_one(self, filter: dict):
-        record = self.col.find_one(filter, self.projection)
-        if record is not None:
-            if record["_id"] not in self.data:
-                species = record.pop("species")
-                traj_cell = record["trajectory"].pop("cell")
-                traj_pos = record["trajectory"].pop("positions")
-                trajectory = tuple(
-                    Structure(
-                        lattice=cell,
-                        species=species,
-                        coords=positions,
-                        coords_are_cartesian=True,
-                    )
+    def record2structure(self, record):
+        if self.trajectory:
+            species = record.pop("species")
+            traj_cell = record["trajectory"].pop("cell")
+            traj_pos = record["trajectory"].pop("positions")
+            if self.type == "pmg":
+                trajectory = [
+                    self._build_pmg(species, cell, positions)
                     for cell, positions in zip(traj_cell, traj_pos)
-                )
-                self.data[record["_id"]] = (trajectory, record)
-            return self.data[record["_id"]]
-        else:
-            raise KeyError(f"Cannot find record which satisfy this filter : {filter}")
-
-    def find(self, filter: dict):
-        cursor = self.col.find(filter, self.projection)
-        for record in cursor:
-            if record["_id"] not in self.data:
-                species = record.pop("species")
-                traj_cell = record["trajectory"].pop("cell")
-                traj_pos = record["trajectory"].pop("positions")
-                trajectory = tuple(
-                    Structure(
-                        lattice=cell,
-                        species=species,
-                        coords=positions,
-                        coords_are_cartesian=True,
-                    )
+                ]
+                return trajectory
+            elif self.type == "ase":
+                trajectory = [
+                    self._build_ase(species, cell, positions)
                     for cell, positions in zip(traj_cell, traj_pos)
-                )
-                self.data[record["_id"]] = (trajectory, record)
-            yield self.data[record["_id"]]
+                ]
+                return trajectory
+        else:
+            species = record.pop("species")
+            cell = record.pop("cell")
+            positions = record.pop("positions")
+            if self.type == "pmg":
+                return self._build_pmg(species, cell, positions)
+            elif self.type == "ase":
+                return self._build_ase(species, cell, positions)
 
-    def __getitem__(self, _id: ObjectId):
-        item = self.data.get(_id, None)
-        if item is None:
-            item = self.find_one({"_id": _id})
-        return item
+    def _build_pmg(self, species, cell, positions):
+        structure = Structure(cell, species, positions, coords_are_cartesian=True)
+        return structure
+
+    def _build_ase(self, species, cell, positions):
+        structure = Atoms(symbols=species, cell=cell, positions=positions, pbc=True)
+        return structure
 
 
 class Pipes:
