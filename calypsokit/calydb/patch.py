@@ -1,6 +1,8 @@
-import numpy as np
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 import calypsokit.analysis.properties as properties
+from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import QueryStructure
 
 
@@ -9,6 +11,14 @@ class RawRecordPatcher:
         self.rawcol = rawcol
         self.qs = QueryStructure(rawcol, None, trajectory=True, type="pmg")
         self.force_update = force_update
+
+    def parallel_patch(self, filter):
+        cursor = self.rawcol.find(filter, {"_id": 1})
+        _id_list = [record["_id"] for record in cursor]
+
+        Parallel(backend="multiprocessing")(
+            delayed(self.patch)(_id) for _id in tqdm(_id_list)
+        )
 
     def patch(self, _id):
         update_dict = self.get_update_dict(_id)
@@ -68,3 +78,11 @@ class RawRecordPatcher:
             strain_info = properties.get_strain_info(celli, cellr)
             update_dict["trajectory.strain"] = strain_info
         return update_dict
+
+
+if __name__ == "__main__":
+    db = login()
+    rawcol = db.get_collection("rawcol")
+    fil = {"deprecated": False}
+    # patcher = RawRecordPatcher(rawcol)
+    # patcher.parallel_patch(fil)
