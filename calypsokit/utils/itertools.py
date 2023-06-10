@@ -1,13 +1,15 @@
-from itertools import tee
+import itertools
 
-import numpy as np
+if "pairwise" not in dir(itertools):
 
+    def pairwise(iterable):
+        # pairwise('ABCDEFG') --> AB BC CD DE EF FG
+        a, b = itertools.tee(iterable)
+        next(b, None)
+        return zip(a, b)
 
-def pairwise(iterable):
-    # pairwise('ABCDEFG') --> AB BC CD DE EF FG
-    a, b = tee(iterable)
-    next(b, None)
-    return zip(a, b)
+else:
+    pairwise = itertools.pairwise
 
 
 class groupby_delta:
@@ -22,7 +24,7 @@ class groupby_delta:
     """
 
     def __init__(self, iter, delta):
-        self.it = pairwise(iter)
+        self.it = itertools.pairwise(iter)
         self.delta = delta
 
     def __iter__(self):

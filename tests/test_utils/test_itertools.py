@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+
 from calypsokit.utils.itertools import groupby_delta, pairwise
 
 
