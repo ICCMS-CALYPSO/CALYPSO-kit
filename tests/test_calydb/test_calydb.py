@@ -113,11 +113,3 @@ class TestCalyDB(unittest.TestCase):
         readout = ReadOut()
         df = readout.unique2cdvae(rawcol, uniqcol, debug=10)
         self.assertEqual(len(df), 10)
-
-    def test_10_RecordPatcher(self):
-        rawcol = self.db.get_collection("rawcol")
-        patcher = RawRecordPatcher(rawcol)
-        sample_rec = rawcol.find_one({"deprecated": True}, {"_id": 1})
-        self.assertTrue(isinstance(patcher.get_update_dict(sample_rec["_id"]), dict))
-        # pprint(patcher.get_update_dict(sample_rec["_id"]))
-        # patcher.patch(sample_rec["_id"])

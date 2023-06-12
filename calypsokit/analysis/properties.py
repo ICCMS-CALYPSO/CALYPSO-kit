@@ -1,3 +1,5 @@
+import io
+from contextlib import redirect_stdout
 from typing import Union
 
 import numpy as np
@@ -5,10 +7,13 @@ import scipy
 from ase import Atoms
 from ase.data import atomic_masses, atomic_numbers, covalent_radii
 from ase.formula import Formula
+from ase.io import write
 from ase.spacegroup import get_spacegroup
 from pymatgen.analysis.dimensionality import get_dimensionality_larsen
 from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.core.structure import Structure
+from pymatgen.io.cif import CifWriter
+from pymatgen.io.vasp import Poscar
 from scipy.linalg import polar
 from scipy.spatial.transform import Rotation as R
 
@@ -269,3 +274,26 @@ def get_dim_larsen(structure: Structure):
         dim_larsen = -1
     return dim_larsen
 
+
+def get_cif_str(structure):
+    if isinstance(structure, Atoms):
+        with io.BytesIO() as buffer, redirect_stdout(buffer):  # type: ignore [type-var]
+            write('-', structure, format='cif')
+            cif = buffer.getvalue().decode()
+    elif isinstance(structure, Structure):
+        cif = str(CifWriter(structure).ciffile)
+    else:
+        raise ValueError(f"Unknown type of {structure=}")
+    return cif
+
+
+def get_poscar_str(structure):
+    if isinstance(structure, Atoms):
+        with io.StringIO() as buffer, redirect_stdout(buffer):
+            write('-', structure, format='vasp', direct=True)
+            vasp = buffer.getvalue()  # byte to string
+    elif isinstance(structure, Structure):
+        vasp = Poscar(structure).get_string()
+    else:
+        raise ValueError(f"Unknown type of {structure=}")
+    return vasp

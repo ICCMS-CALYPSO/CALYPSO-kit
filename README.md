@@ -73,6 +73,15 @@ The database is stored by MongoDB.
     },                                          # for group structures
     "min_distance":             0.0,    # min distance between atoms
     "dim_larsen":               3,      # dimension in larsen algorithm, -1 if no neighboor if found
+    "symmetry": {
+        # symprec(str %.0e)
+        #        int[1, 230] str ("F m -3 m")
+        "1e-1": {"number": 0, "symbol": ""},
+        "1e-2": {"number": 0, "symbol": ""},
+        "1e-5": {"number": 0, "symbol": ""},
+    },
+    "cif":                      "",     # cif string
+    "poscar"                    "",     # VASP POSCAR string
 
     "trajectory": {
         "nframes":                  <F>,      # int
@@ -107,13 +116,6 @@ The database is stored by MongoDB.
     },
     "dftconfig":                [],   # list of str，不要替换换行符
     "pseudopotential":          [],   # list of str，与elements对应
-    "symmetry": {
-        # symprec(str %.0e)
-        #        int[1, 230] str ("F m -3 m")
-        "1e-1": {"number": 0, "symbol": ""},
-        "1e-2": {"number": 0, "symbol": ""},
-        "1e-5": {"number": 0, "symbol": ""},
-    },
     "donator": {"name": "", "email": ""},
     "deprecated":               False,  # bool
     "deprecated_reason":        "",     # str
