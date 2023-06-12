@@ -11,7 +11,22 @@ This repository maintains toolkit for CALYPSO structure prediction software.
          |- calydb.py
          |- query.py          # customized query methods
 
-## How does the DataBase organized?
+## CALYPSO Database
+
+### Connect to the database
+
+To connect it with pymongo, the database address, username, password are read from
+the environment variables. You can either put them in you environment variables or
+write a `.env` file:
+
+```properties
+MONGODB_ADDR=<ip>:<port>
+MONGODB_USER=<username>
+MONGODB_PWD=<password>
+MONGODB_DATABASE=<database name>
+```
+
+### How does the DataBase organized?
 
 The database is stored by MongoDB.
 
@@ -20,7 +35,7 @@ The database is stored by MongoDB.
       |- *col          # other selected collection
       |- debugcol      # debug collection
 
-## What is recorded in rawcol?
+### What are recorded in `rawcol`?
 
 
     "material_id":              "",     # str
@@ -78,7 +93,7 @@ The database is stored by MongoDB.
             "max_d_cell_roti_r":    float,           # max abs delta between rotated cell_i and cell_r
             "avg_d_cell_roti_r":    float,           # mean abs delta between rotated cell_i and cell_r
         }
-        "shifted_d_frac":           <Na>x3 ndarray,  # delta fractional coordinates 'r' minus 'i' shifted in [-0.5, 0.5]
+        "shifted_d_frac":           <Na>x3 ndarray,  # delta fractional coordinates 'r' minus 'i' shifted between [-0.5, 0.5]
         "strain": {
             "rot":                  3x3 ndarray,     # U of polar decomposition <r>=UP<i> 
             "strain":               3x3 ndarray,     # strain matrix, strain=P-I
