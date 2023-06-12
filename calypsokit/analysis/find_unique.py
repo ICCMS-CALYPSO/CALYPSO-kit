@@ -168,6 +168,16 @@ class UniqueFinder:
         # print(sorted([qs[_id][1]["enthalpy_per_atom"] for _id in unique_list]))
         return unique_list
 
+    def maintain_deprecated(self):
+        """delete the deprecated records in uniqcol"""
+        pipeline = [{"$match": {"deprecated": True}}]
+        pipeline += Pipes.unique_records(self.uniqcol.name)
+        pipeline += [{"$group": {"_id": None, "ids": {"$push": "$_id"}}}]
+        for record in self.rawcol.aggregate(pipeline):
+            print(f"{len(record['ids'])} records will be deleted from {self.uniqcol}")
+            self.uniqcol.delete_many({"_id": {"$in": record["ids"]}})
+        print("Deleted")
+
 
 if __name__ == '__main__':
     # ---------------------------------------------------------------
@@ -197,3 +207,10 @@ if __name__ == '__main__':
     #
     # data = {"unique_ids": unique_list, "last_updated_utc": datetime.utcnow()}
     # uniqcol.insert_one(data)
+
+    # maintain deprecated
+    # db = login()
+    # rawcol = db.get_collection("rawcol")
+    # uniqcol = db.get_collection("uniqcol")
+    # uniqfinder = UniqueFinder(rawcol, uniqcol)
+    # uniqfinder.maintain_deprecated()
