@@ -248,29 +248,32 @@ class Pipes:
         return pipeline
 
     @staticmethod
-    def unique_records(fromcol="rawcol"):
+    def unique_records(uniqcol="uniq"):
         pipeline = [
             {
-                '$lookup': {
-                    'from': f"{fromcol}",
-                    'localField': '_id',
-                    'foreignField': '_id',
-                    'as': 'matched_docs',
+                "$lookup": {
+                    "from": f"{uniqcol}",
+                    "localField": "_id",
+                    "foreignField": "_id",
+                    "as": "intersection",
                 }
             },
-            # No neet to Filter the documents with matches, cause unwind will not output
-            # empty list by default
-            # {'$match': {'matched_docs': {'$ne': []}}},
-            {"$unwind": "$matched_docs"},
-            {
-                "$replaceRoot": {
-                    "newRoot": {
-                        "$mergeObjects": [{"version": "$version"}, "$matched_docs"]
-                    }
-                }
-            },
-            {"$match": {"deprecated": False}},
+            {"$match": {"intersection": {"$ne": []}}},
+            {"$unwind": "$intersection"},
         ]
+        return pipeline
+
+    @staticmethod
+    def cdvae_records(uniqcol="uniqcol"):
+        pipeline = [
+            {
+                "$match": {
+                    "deprecated": False,
+                    "min_distance": {"$gte": 0.5, "$lte": 5.2},
+                    "volume_rate": {"$lte": 4},
+                }
+            },
+        ] + Pipes.unique_records(uniqcol)
         return pipeline
 
 
