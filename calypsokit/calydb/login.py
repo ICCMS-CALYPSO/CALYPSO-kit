@@ -7,6 +7,7 @@ import pymongo
 from bson import Binary
 from bson.binary import USER_DEFINED_SUBTYPE
 from bson.codec_options import CodecOptions, TypeCodec, TypeRegistry
+from pymongo.database import Database
 
 
 # =========== Registor Numpy Type ==========
@@ -29,20 +30,14 @@ def fallback_encoder(value):
     return value
 
 
-class NumpyDatabase:
+class NumpyDatabase(Database):
     numpy_codec = NumpyCodec()
     type_registry = TypeRegistry([numpy_codec], fallback_encoder=fallback_encoder)
     codec_options: CodecOptions
     codec_options = CodecOptions(type_registry=type_registry, tz_aware=False)
 
-    def __init__(self, database):
-        self.database = database
-
-    def get_collection(self, collection, **kwargs):
-        collection = self.database.get_collection(
-            collection, codec_options=self.codec_options, **kwargs
-        )
-        return collection
+    def __init__(self, client, name, codec_options=codec_options, **kwargs):
+        super().__init__(client, name, codec_options, **kwargs)
 
 
 def login(addr=None, user=None, pwd=None, db=None, dotenv_path=None):
@@ -57,7 +52,7 @@ def login(addr=None, user=None, pwd=None, db=None, dotenv_path=None):
             raise ValueError(f"{key} not configured in .env file")
 
     client = pymongo.MongoClient(f"mongodb://{user}:{pwd}@{addr}")
-    db = NumpyDatabase(client[dbname])
+    db = NumpyDatabase(client, dbname)
     return db
 
 
