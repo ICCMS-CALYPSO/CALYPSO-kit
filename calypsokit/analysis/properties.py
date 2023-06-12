@@ -262,5 +262,10 @@ crystalnn = CrystalNN()
 
 
 def get_dim_larsen(structure: Structure):
-    bonded_structure = crystalnn.get_bonded_structure(structure)
-    return int(get_dimensionality_larsen(bonded_structure))
+    try:
+        bonded_structure = crystalnn.get_bonded_structure(structure)
+        dim_larsen = int(get_dimensionality_larsen(bonded_structure))
+    except Exception:
+        dim_larsen = -1
+    return dim_larsen
+
