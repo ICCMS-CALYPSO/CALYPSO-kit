@@ -71,7 +71,7 @@ def get_basic_info(root, results_dir):
     inputdat = readinput(results_dir.parent.joinpath("input.dat"))
     # inputdat = readinput(input=input_path+'/input.dat')
 
-    incar_list = list(results_dir.parent.glob("INCAR*"))
+    incar_list = sorted(results_dir.parent.glob("INCAR*"))
     potcar = []
     if len(incar_list) == 0:
         # os.system(f'echo "{results_dir}" >> {cwd}/noINCAR-record')
@@ -450,14 +450,16 @@ def wrapper_insert(idx, datadict):
 
 if __name__ == "__main__":
     root = "/home/share/calypsodata/raw/20230608"
+    root = "/home/share/calypsodata/raw/20230602/mayuan/total-mayuan/1.Lu-Li-H-mayuan/1.Lu-Li-H/14141040/"
+    root = "/home/share/calypsodata/raw/debug/"
     level = 8
-    db = login(dotenv_path=".env-maintain")
-    rawcol = db.get_collection("rawcol")
-    cur_caly_max_idx = get_current_caly_max_index(rawcol)
-    print(f"{cur_caly_max_idx=}")
+    # db = login(dotenv_path=".env-maintain")
+    # rawcol = db.get_collection("rawcol")
+    # cur_caly_max_idx = get_current_caly_max_index(rawcol)
+    # print(f"{cur_caly_max_idx=}")
 
     # -- Check basic info --------------------------------
-    # check_basic_info(root, level)
+    print(check_basic_info(root, level))
 
     # -- Find and update ---------------------------------
     # rawrecord_list = Parallel(1, backend="multiprocessing")(
