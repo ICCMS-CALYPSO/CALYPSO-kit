@@ -127,6 +127,7 @@ def extract_ini_structures(root, results_dir, basic_info):
                 if (
                     ''.join(lines[i].strip().split('_')).isalpha()
                     or ''.join(lines[i].strip().split('_')).isalnum()
+                    or ''.join(lines[i].strip().split('-')).isalnum()
                 ) and "Direct" not in lines[i]:
                     i += 1  # Skip the structure identifier line
                     sid += 1
@@ -459,7 +460,13 @@ if __name__ == "__main__":
     # print(f"{cur_caly_max_idx=}")
 
     # -- Check basic info --------------------------------
-    print(check_basic_info(root, level))
+    # print(check_basic_info(root, level))
+
+    # -- Check get_results_dir  --------------------------------
+    # print(sorted(get_results_dir(root, level=2)))
+
+    # -- Check group_iniopt  --------------------------------
+    print(sorted(group_iniopt(root, level=8)))
 
     # -- Find and update ---------------------------------
     # rawrecord_list = Parallel(1, backend="multiprocessing")(
