@@ -12,13 +12,9 @@ import numpy as np
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
+import calypsokit.analysis.properties as properties
+from ase import Atoms
 from calypsokit.analysis.legacy.read_inputdat import readinput
-from calypsokit.analysis.properties import (
-    get_density_clospack_density,
-    get_formula,
-    get_pressure_range,
-    wrapped_get_symmetry_from_datadict,
-)
 from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import get_current_caly_max_index
 from calypsokit.calydb.record import RecordDict
@@ -185,7 +181,7 @@ def extract_ini_structures(root, results_dir, basic_info):
                         volume,
                         clospack_density,
                         clospack_volume,
-                    ) = get_density_clospack_density(species, cell)
+                    ) = properties.get_density_clospack_density(species, cell)
                     if volume < 1e-5:
                         raise ValueError("Volume too small")
                     if clospack_volume < 1e-5:
@@ -311,7 +307,7 @@ def extract_opt_structures(root, results_dir, basic_info):
                         volume,
                         clospack_density,
                         clospack_volume,
-                    ) = get_density_clospack_density(species, cell)
+                    ) = properties.get_density_clospack_density(species, cell)
                     if volume < 1e-5:
                         raise ValueError("Volume too small")
                     if clospack_volume < 1e-5:
@@ -352,14 +348,14 @@ def extract_opt_structures(root, results_dir, basic_info):
 
 def match_iniopt(ini_dict, opt_dict, basic_info):
     donator, pressure, incar, potcar, inputdat, version = basic_info
-    pressure_range = get_pressure_range(pressure)
+    pressure_range = properties.get_pressure_range(pressure)
     matched_keys = list(set(ini_dict.keys()) & set(opt_dict.keys()))
     for key in matched_keys:
         try:
             assert ini_dict[key]["volume"] > 1e-5, "ini volume too small"
             assert opt_dict[key]["volume"] > 1e-5, "opt volume too small"
             assert ini_dict[key]["natoms"] == opt_dict[key]["natoms"], "natoms unmatch"
-            formula, reduced_formula = get_formula(ini_dict[key]["species"])
+            formula, reduced_formula = properties.get_formula(ini_dict[key]["species"])
             trajectory = {
                 "nframes": 2,
                 "cell": np.stack([d["cell"] for d in [ini_dict[key], opt_dict[key]]]),
@@ -386,6 +382,27 @@ def match_iniopt(ini_dict, opt_dict, basic_info):
                 "source_idx": [d["source_idx"] for d in [ini_dict[key], opt_dict[key]]],
                 "source_dir": opt_dict[key]["source_dir"],
             }
+            atoms = Atoms(
+                opt_dict[key]["species"],
+                opt_dict[key]["positions"],
+                cell=opt_dict[key]["cell"],
+                pbc=True,
+            )
+            opt_dict[key]["min_distance"] = properties.get_min_distance(atoms)
+            opt_dict[key]["volume_rate"] = (
+                opt_dict[key]["volume"] / opt_dict[key]["clospack_volume"]
+            )
+            # ---------------------------------------------------------------------
+            trajectory["kabsch"] = properties.get_kabsch_info(
+                ini_dict[key]["cell"], opt_dict[key]["cell"]
+            )
+            trajectory["shifted_d_frac"] = properties.get_shifted_d_frac(
+                ini_dict[key]["scaled_positions"], opt_dict[key]["scaled_positions"]
+            )
+            trajectory["strain"] = properties.get_strain_info(
+                ini_dict[key]["cell"], opt_dict[key]["cell"]
+            )
+            # ---------------------------------------------------------------------
         except Exception as e:
             print(e)
             continue
@@ -438,7 +455,7 @@ def create_caly_id(calyidx):
 def wrapper_insert(idx, datadict):
     material_id, source = create_caly_id(idx)
     try:
-        symmetry = wrapped_get_symmetry_from_datadict(datadict)
+        symmetry = properties.wrapped_get_symmetry_from_datadict(datadict)
         datadict["symmetry"] = symmetry
         datadict["material_id"] = material_id
         datadict["source"] = source
@@ -452,9 +469,10 @@ def wrapper_insert(idx, datadict):
 
 if __name__ == "__main__":
     root = "/home/share/calypsodata/raw/20230608"
-    root = "/home/share/calypsodata/raw/20230602/mayuan/total-mayuan/1.Lu-Li-H-mayuan/1.Lu-Li-H/14141040/"
-    root = "/home/share/calypsodata/raw/debug/"
-    level = 8
+    # root = "/home/share/calypsodata/raw/20230601/debug"
+    # level = 12
+    # for d in get_results_dir(root, level):
+    #     print(d)
     # db = login(dotenv_path=".env-maintain")
     # rawcol = db.get_collection("rawcol")
     # cur_caly_max_idx = get_current_caly_max_index(rawcol)
@@ -467,7 +485,7 @@ if __name__ == "__main__":
     # print(sorted(get_results_dir(root, level=2)))
 
     # -- Check group_iniopt  --------------------------------
-    print(next(group_iniopt(root, level=8)))
+    # print(next(group_iniopt(root, level=8)))
 
     # -- Find and update ---------------------------------
     # rawrecord_list = Parallel(1, backend="multiprocessing")(
