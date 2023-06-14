@@ -249,6 +249,7 @@ def extract_opt_structures(root, results_dir, basic_info):
                     (
                         ''.join(lines[i].strip().split('_')).isalpha()
                         or ''.join(lines[i].strip().split('_')).isalnum()
+                        or ''.join(lines[i].strip().split('-')).isalnum()
                     )
                     and "Direct" not in lines[i]
                     and '610612509' not in lines[i]
@@ -466,7 +467,7 @@ if __name__ == "__main__":
     # print(sorted(get_results_dir(root, level=2)))
 
     # -- Check group_iniopt  --------------------------------
-    print(sorted(group_iniopt(root, level=8)))
+    print(next(group_iniopt(root, level=8)))
 
     # -- Find and update ---------------------------------
     # rawrecord_list = Parallel(1, backend="multiprocessing")(
