@@ -12,6 +12,7 @@ build-backend = "setuptools.build_meta"
     ]
     dependencies = [
         "ase",
+        "click",
         "joblib",
         "numpy",
         "pandas",
@@ -48,6 +49,7 @@ build-backend = "setuptools.build_meta"
     # documentation = ""
 
 [project.scripts]
+    cak = "calypsokit.cli.cli:main"
 
 [tool.setuptools]
     packages = ["calypsokit"]

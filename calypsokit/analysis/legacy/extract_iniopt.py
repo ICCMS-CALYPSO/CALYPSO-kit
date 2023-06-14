@@ -7,13 +7,15 @@ import pickle
 from itertools import chain
 from pathlib import Path
 from pprint import pprint
+from typing import Union
 
+import click
 import numpy as np
+from ase import Atoms
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
 import calypsokit.analysis.properties as properties
-from ase import Atoms
 from calypsokit.analysis.legacy.read_inputdat import readinput
 from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import get_current_caly_max_index
@@ -27,12 +29,13 @@ except ModuleNotFoundError as e:
 
 
 def get_results_dir(root, level=1):
+    root = Path(root).resolve()
     results_list = []
 
-    def inner_get_dir(path, n: int):
+    def inner_get_dir(path: Path, n: int):
         if n <= 0:
             return
-        for deepfile in Path(path).glob("*"):
+        for deepfile in path.glob("*"):
             if deepfile.is_dir():
                 if deepfile.name.startswith("results"):
                     results_list.append(str(deepfile))
@@ -46,15 +49,9 @@ def get_results_dir(root, level=1):
     return results_list
 
 
-def get_basic_info(root, results_dir):
-    root_date = Path(root).name
-    results_dir = Path(results_dir)
-    donator = Path(results_dir).relative_to(root).parts[0]
-    donator = contactbook[root_date][donator]
-
-    logfile = results_dir.joinpath("CALYPSO.log")
-    if logfile.exists():
-        with open(logfile, "r") as log:
+def get_version_from_calylog(calylog):
+    if Path(calylog).exists():
+        with open(calylog, "r") as log:
             for line in log:
                 if line.startswith("Program"):
                     version = line.split()[2]
@@ -63,44 +60,81 @@ def get_basic_info(root, results_dir):
                 version = "legacy"
     else:
         version = "legacy"
+    return version
 
+
+def get_pressure_from_incar(incar):
+    """read PSTRESS from incar
+
+    Parameters
+    ----------
+    incar : str
+        INCAR file name, str or Path
+
+    Returns
+    -------
+    pressure: float
+
+    Raises
+    ------
+    ValueError
+        No PSTRESS line
+    """
+    with open(incar, "r") as f:
+        for line in f:
+            if line.strip().startswith("PSTRESS"):
+                pressure = float(line.split("=")[-1]) / 10  # kbar to GPa
+                break
+        else:
+            raise ValueError(f"No PSTRESS in {incar}")
+    return pressure
+
+
+def get_title_from_potcar(potcar):
+    potcar_title = []
+    with open(potcar, "r") as f:
+        for line in f:
+            if "TITEL" in line:
+                potcar_title.append(line.strip())
+    return potcar_title
+
+
+# root:          /**
+# results_dir:   /**/<date>/<name>/**/results*
+def get_basic_info(root, results_dir):
+    root = Path(root).resolve()
+    results_dir = Path(results_dir).resolve()
+    root_date, donator, *_ = Path(results_dir).relative_to(root).parts
+    donator = contactbook[root_date][donator]
+    # calylog & version
+    calylog = results_dir.joinpath("CALYPSO.log")
+    version = get_version_from_calylog(calylog)
+    # input.dat
     inputdat = readinput(results_dir.parent.joinpath("input.dat"))
-    # inputdat = readinput(input=input_path+'/input.dat')
-
+    # INCAR & pressure
     incar_list = sorted(results_dir.parent.glob("INCAR*"))
-    potcar = []
     if len(incar_list) == 0:
         # os.system(f'echo "{results_dir}" >> {cwd}/noINCAR-record')
         raise FileNotFoundError(f"{results_dir} No INCAR record")
     else:
-        with open(incar_list[-1], "r") as f:
-            for line in f:
-                if line.strip().startswith("PSTRESS"):
-                    pressure = float(line.split("=")[-1]) / 10  # kbar to GPa
-                    break
-            else:
-                raise ValueError(f"No PSTRESS in {incar_list[-1]}")
+        pressure = get_pressure_from_incar(incar_list[-1])
         with open(incar_list[-1], "r") as f:
             incar = f.read()
-    if results_dir.parent.joinpath("OUTCAR").exists():
-        with open(results_dir.parent.joinpath("POTCAR"), "r") as f:
-            for line in f:
-                if "TITEL" in line:
-                    potcar.append(line.strip())
-    # print(donator)
-    # print(pressure)
-    # print(incar)
-    # print(potcar)
-    # print(inputdat)
-    # print(version)
+    # POTCAR
+    if results_dir.parent.joinpath("POTCAR").exists():
+        potcar = get_title_from_potcar(results_dir.parent.joinpath("POTCAR"))
+    else:
+        potcar = []
 
     return (donator, pressure, incar, potcar, inputdat, version)
 
 
+# root:          /**
+# results_dir:   /**/<date>/<name>/**/results*
 def extract_ini_structures(root, results_dir, basic_info):
-    root = Path(root)  # **/<date>
-    results_dir = Path(results_dir)  # **/results
-    source_dir = str(results_dir.relative_to(root.parent))  # <date>/**/results
+    root = Path(root)
+    results_dir = Path(results_dir)
+    source_dir = str(results_dir.relative_to(root))  # <date>/<name>/**/results
     donator, pressure, incar, potcar, inputdat, version = basic_info
 
     atom_names = inputdat["nameofatoms"]
@@ -219,9 +253,9 @@ def extract_ini_structures(root, results_dir, basic_info):
 
 
 def extract_opt_structures(root, results_dir, basic_info):
-    root = Path(root)  # **/<date>
-    results_dir = Path(results_dir)  # **/results
-    source_dir = str(results_dir.relative_to(root.parent))  # <date>/**/results
+    root = Path(root)
+    results_dir = Path(results_dir)
+    source_dir = str(results_dir.relative_to(root))  # <date>/<name>/**/results
     donator, pressure, incar, potcar, inputdat, version = basic_info
 
     atom_names = inputdat["nameofatoms"]
@@ -430,20 +464,42 @@ def match_iniopt(ini_dict, opt_dict, basic_info):
             yield data
 
 
-def check_basic_info(root, level=2):
-    results_list = get_results_dir(root, level)
-    for results in tqdm(results_list):
-        return get_basic_info(root, results)
+class GroupIniOpt:
+    def __init__(self, root, results_list=[]):
+        """Group all ini-opt from results_list
 
+        Parameters
+        ----------
+        root : Path | str
+            top level root dir which will be removed from results dir
+        results_list : list, optional, default []
+            results* dir list, all should be <root>/<date>/<name>/**/results*
+        """
+        self.root = root
+        self.results_list = results_list
 
-def group_iniopt(root, level=2):
-    results_list = get_results_dir(root, level)
-    for results in tqdm(results_list):
-        basic_info = get_basic_info(root, results)
-        ini_dict = extract_ini_structures(root, results, basic_info)
-        opt_dict = extract_opt_structures(root, results, basic_info)
+    def group_one_results(self, results: Union[Path, str]):
+        basic_info = get_basic_info(self.root, results)
+        ini_dict = extract_ini_structures(self.root, results, basic_info)
+        opt_dict = extract_opt_structures(self.root, results, basic_info)
         for datadict in match_iniopt(ini_dict, opt_dict, basic_info):
             yield datadict
+
+    def __call__(self):
+        for results in tqdm(self.results_list):
+            for datadict in self.group_one_results(root, results):
+                yield datadict
+
+    @classmethod
+    def from_file(cls, root, results_list_file):
+        with open(results_list_file, 'r') as f:
+            results_list = [line.strip() for line in f.readlines()]
+        return cls(root, results_list)
+
+    @classmethod
+    def from_recursive(cls, root, level=1):
+        results_list = get_results_dir(root, level)
+        return cls(root, results_list)
 
 
 def create_caly_id(calyidx):
