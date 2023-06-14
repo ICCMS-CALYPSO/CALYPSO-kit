@@ -83,7 +83,7 @@ def get_basic_info(root, results_dir):
                 raise ValueError(f"No PSTRESS in {incar_list[-1]}")
         with open(incar_list[-1], "r") as f:
             incar = f.read()
-    if results_dir.parent.joinpath("OUTCAR").exists():
+    if results_dir.parent.joinpath("POTCAR").exists():
         with open(results_dir.parent.joinpath("POTCAR"), "r") as f:
             for line in f:
                 if "TITEL" in line:
@@ -466,7 +466,7 @@ def wrapper_insert(idx, datadict):
         datadict["source"] = source
         rawrecord = RecordDict(datadict)
         rawrecord.update_time()
-    except Exception:
+    except Exception as e:
         return
     else:
         return rawrecord
@@ -475,7 +475,7 @@ def wrapper_insert(idx, datadict):
 if __name__ == "__main__":
     root = "/home/share/calypsodata/raw/20230608"
     root = "/home/share/calypsodata/raw/20230601/debug"
-    # level = 12
+    level = 12
     # for d in get_results_dir(root, level):
     #     print(d)
     # db = login(dotenv_path=".env-maintain")
@@ -490,14 +490,16 @@ if __name__ == "__main__":
     # print(sorted(get_results_dir(root, level=8)))
 
     # -- Check group_iniopt  --------------------------------
-    print(next(group_iniopt(root, level=8)))
+    # print(next(group_iniopt(root, level=8)))
 
     # -- Find and update ---------------------------------
+    # cur_caly_max_idx = 0
     # rawrecord_list = Parallel(1, backend="multiprocessing")(
     #     delayed(wrapper_insert)(cur_caly_max_idx + idx + 1, datadict)
     #     for idx, datadict in enumerate(group_iniopt(root, level))
     # )
     # rawrecord_list = [rawcol for rawcol in rawrecord_list if rawcol is not None]
+    # print(rawrecord_list)
     # print(len(rawrecord_list))
     # with open(f"{root}/rawrecord.pkl", "wb") as f:
     #     pickle.dump(rawrecord_list, f)

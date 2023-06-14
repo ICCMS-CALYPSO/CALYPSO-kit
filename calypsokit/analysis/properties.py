@@ -120,7 +120,7 @@ def get_pressure_range(pressure: float, length=0.2, closed="right") -> dict:
 
 def get_symmetry(atoms: Atoms, symprec):
     spg = get_spacegroup(atoms, symprec)
-    return {"number": spg.no, "symbol": spg.symbol}
+    return {"number": spg.no, "symbol": spg.symbol, "crystal_system": get_crystal_system(spg.no)}
 
 
 def wrapped_get_symmetry(atoms: Atoms):
@@ -297,3 +297,31 @@ def get_poscar_str(structure):
     else:
         raise ValueError(f"Unknown type of {structure=}")
     return vasp
+
+
+def get_crystal_system(n):
+    """Get the crystal system for the structure, e.g., (triclinic, orthorhombic,
+    cubic, etc.).
+
+    Raises:
+        ValueError: on invalid space group numbers < 1 or > 230.
+
+    Returns:
+        (str): Crystal system for structure
+    """
+    if not (n == int(n) and 0 < n < 231):
+        raise ValueError(f"Received invalid space group {n}")
+
+    if 0 < n < 3:
+        return "triclinic"
+    if n < 16:
+        return "monoclinic"
+    if n < 75:
+        return "orthorhombic"
+    if n < 143:
+        return "tetragonal"
+    if n < 168:
+        return "trigonal"
+    if n < 195:
+        return "hexagonal"
+    return "cubic"
