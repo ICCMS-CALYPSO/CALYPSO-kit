@@ -76,9 +76,9 @@ The database is stored by MongoDB.
     "symmetry": {
         # symprec(str %.0e)
         #        int[1, 230] str ("F m -3 m")
-        "1e-1": {"number": 0, "symbol": ""},
-        "1e-2": {"number": 0, "symbol": ""},
-        "1e-5": {"number": 0, "symbol": ""},
+        "1e-1": {"number": 0, "symbol": "", "crystal_system": ""},
+        "1e-2": {"number": 0, "symbol": "", "crystal_system": ""},
+        "1e-5": {"number": 0, "symbol": "", "crystal_system": ""},
     },
     "cif":                      "",     # cif string
     "poscar"                    "",     # VASP POSCAR string
