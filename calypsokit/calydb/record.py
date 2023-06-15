@@ -1,7 +1,6 @@
 from collections import UserDict
 from datetime import datetime
 
-import sys
 import numpy as np
 from ase import Atoms
 from ase.data import atomic_numbers, covalent_radii
@@ -92,9 +91,12 @@ class RecordDict(BaseRecordDict):
             len(self.data["elements"])
             == self.data["nelements"]
             == len(self.data["pseudopotential"])
-        ), f'nelements not match {self.data["elements"]=} {self.data["nelements"]=} {self.data["pseudopotential"]=}'
-        # ), "nelements not match"
-        # sys.exit()
+        ), (
+            'nelements not match '
+            + f'{self.data["elements"]=} '
+            + f'{self.data["nelements"]=} '
+            + f'{self.data["pseudopotential"]=}'
+        )
         assert (
             self.data["natoms"]
             == self.data["positions"].shape[0]

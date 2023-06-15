@@ -87,7 +87,8 @@ def get_pressure_from_incar(incar):
                 pressure = float(line.split("=")[-1]) / 10  # kbar to GPa
                 break
         else:
-            raise ValueError(f"No PSTRESS in {incar}")
+            pressure = 0.0
+            # raise ValueError(f"No PSTRESS in {incar}")
     return pressure
 
 
@@ -106,28 +107,40 @@ def get_basic_info(root, results_dir):
     root = Path(root).resolve()
     results_dir = Path(results_dir).resolve()
     root_date, donator, *_ = Path(results_dir).relative_to(root).parts
-    donator = contactbook[root_date][donator]
+    if contactbook.get(root_date, None) is None:
+        raise KeyError(f"No such root_date: {root_date}")
+    elif contactbook[root_date].get(donator, None) is None:
+        raise KeyError(f"No such donator: {donator} in root_date: {root_date}")
+    else:
+        donator = contactbook[root_date][donator]
     # calylog & version
     calylog = results_dir.joinpath("CALYPSO.log")
     version = get_version_from_calylog(calylog)
     # input.dat
     inputdat = readinput(results_dir.parent.joinpath("input.dat"))
-    # INCAR & pressure
-    incar_list = sorted(results_dir.parent.glob("INCAR*"))
-    if len(incar_list) == 0:
-        # os.system(f'echo "{results_dir}" >> {cwd}/noINCAR-record')
-        raise FileNotFoundError(f"{results_dir} No INCAR record")
+    # ICODE
+    if inputdat["icode"] == 1:
+        # INCAR & pressure
+        incar_list = sorted(results_dir.parent.glob("INCAR*"))
+        if len(incar_list) == 0:
+            # os.system(f'echo "{results_dir}" >> {cwd}/noINCAR-record')
+            raise FileNotFoundError(f"{results_dir} No INCAR record")
+        else:
+            pressure = get_pressure_from_incar(incar_list[-1])
+            with open(incar_list[-1], "r") as f:
+                dftconfig = f.read()
+        # POTCAR
+        nelems = len(inputdat["nameofatoms"])
+        if results_dir.parent.joinpath("POTCAR").exists():
+            pseudopotential = get_title_from_potcar(
+                results_dir.parent.joinpath("POTCAR")
+            )[:nelems]
+        else:
+            pseudopotential = ["Not Found"] * nelems
     else:
-        pressure = get_pressure_from_incar(incar_list[-1])
-        with open(incar_list[-1], "r") as f:
-            incar = f.read()
-    # POTCAR
-    if results_dir.parent.joinpath("POTCAR").exists():
-        potcar = get_title_from_potcar(results_dir.parent.joinpath("POTCAR"))
-    else:
-        potcar = []
+        raise NotImplementedError("ICODE != 1")
 
-    return (donator, pressure, incar, potcar, inputdat, version)
+    return (donator, pressure, dftconfig, pseudopotential, inputdat, version)
 
 
 # root:          /**
@@ -483,6 +496,15 @@ class GroupIniOpt:
         self.root = root
         self.results_list = results_list
 
+    def check_basic_info(self):
+        for results in tqdm(self.results_list):
+            try:
+                get_basic_info(self.root, results)
+            except Exception as e:
+                print(f"{results} failed : {e}")
+            else:
+                yield results
+
     def group_one_results(self, results: Union[Path, str]):
         basic_info = get_basic_info(self.root, results)
         ini_dict = extract_ini_structures(self.root, results, basic_info)
@@ -491,7 +513,8 @@ class GroupIniOpt:
             yield datadict
 
     def __call__(self):
-        for results in tqdm(self.results_list):
+        results_list = list(self.check_basic_info())
+        for results in tqdm(results_list):
             for datadict in self.group_one_results(root, results):
                 yield datadict
 
@@ -513,16 +536,22 @@ def create_caly_id(calyidx):
     return material_id, source
 
 
-def wrapper_insert(idx, datadict):
-    material_id, source = create_caly_id(idx)
+def patch_before_insert(calyidx, datadict):
+    material_id, source = create_caly_id(calyidx)
+    symmetry = properties.wrapped_get_symmetry_from_datadict(datadict)
+    datadict["symmetry"] = symmetry
+    datadict["material_id"] = material_id
+    datadict["source"] = source
+    rawrecord = RecordDict(datadict)
+    rawrecord.update_time()
+    return rawrecord
+
+
+def wrapper_insert(calyidx, datadict):
     try:
-        symmetry = properties.wrapped_get_symmetry_from_datadict(datadict)
-        datadict["symmetry"] = symmetry
-        datadict["material_id"] = material_id
-        datadict["source"] = source
-        rawrecord = RecordDict(datadict)
-        rawrecord.update_time()
+        rawrecord = patch_before_insert(calyidx, datadict)
     except Exception as e:
+        print(e)
         return
     else:
         return rawrecord
