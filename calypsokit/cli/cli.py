@@ -1,7 +1,14 @@
 import pickle
+from pathlib import Path
 from pprint import pprint
 
 import click
+
+from calypsokit.analysis.legacy.extract_iniopt import (
+    GroupIniOpt,
+    get_results_dir,
+    patch_before_insert,
+)
 
 
 @click.group()
@@ -18,8 +25,6 @@ def analy():
 @click.argument('root', type=click.Path())
 @click.option('-L', '--level', type=int, default=1, help="recursive level (default 1)")
 def find_results(root, level):
-    from calypsokit.analysis.legacy.extract_iniopt import get_results_dir
-
     for result_dir in get_results_dir(root, level):
         click.echo(result_dir)
 
@@ -28,8 +33,6 @@ def find_results(root, level):
 @click.argument('root', type=click.Path())
 @click.argument('results_tree', type=click.Path(exists=True))
 def check_basic_info(root, results_tree):
-    from calypsokit.analysis.legacy.extract_iniopt import GroupIniOpt
-
     groupiniopt = GroupIniOpt.from_file(root, results_tree)
     list(groupiniopt.check_basic_info())
 
@@ -38,11 +41,6 @@ def check_basic_info(root, results_tree):
 @click.argument('root', type=click.Path())
 @click.argument('results', type=click.Path())
 def extract_one(root, results):
-    from calypsokit.analysis.legacy.extract_iniopt import (
-        GroupIniOpt,
-        patch_before_insert,
-    )
-
     for datadict in GroupIniOpt(root).group_one_results(results):
         pprint(patch_before_insert(0, datadict))
         break
@@ -51,9 +49,12 @@ def extract_one(root, results):
 @analy.command('extract_all', help="extract all grouped ini-opt from results*")
 @click.argument('root', type=click.Path())
 @click.argument('results_tree', type=click.Path(exists=True))
-@click.option('-o', '--output', type=click.Path(), help="output pickle")
-def extract_all(root, results_tree, output):
-    pass
+@click.argument('outpickle', type=click.Path())
+def extract_all(root, results_tree, outpickle):
+    datadict_list = GroupIniOpt(root).from_file(root, results_tree)()
+    pickle_file = Path(results_tree).with_name(outpickle)
+    with open(pickle_file, 'wb') as f:
+        pickle.dump(datadict_list, f)
 
 
 def main():

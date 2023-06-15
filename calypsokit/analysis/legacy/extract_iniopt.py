@@ -4,6 +4,7 @@
 # made the proper modification
 
 import pickle
+import sys
 from itertools import chain
 from pathlib import Path
 from pprint import pprint
@@ -20,7 +21,6 @@ from calypsokit.analysis.legacy.read_inputdat import readinput
 from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import get_current_caly_max_index
 from calypsokit.calydb.record import RecordDict
-from calypsokit.analysis.properties import get_cif_str, get_poscar_str
 
 try:
     from calypsokit.analysis.legacy.contactbook import contactbook
@@ -438,8 +438,8 @@ def match_iniopt(ini_dict, opt_dict, basic_info):
             )
             opt_dict[key]["cell_abc"] = atoms.cell.lengths().tolist()
             opt_dict[key]["cell_angles"] = atoms.cell.angles().tolist()
-            opt_dict[key]["cif"] = get_cif_str(atoms)
-            opt_dict[key]["poscar"] = get_poscar_str(atoms)
+            opt_dict[key]["cif"] = properties.get_cif_str(atoms)
+            opt_dict[key]["poscar"] = properties.get_poscar_str(atoms)
             opt_dict[key]["min_distance"] = properties.get_min_distance(atoms)
             opt_dict[key]["volume_rate"] = (
                 opt_dict[key]["volume"] / opt_dict[key]["clospack_volume"]
@@ -512,11 +512,16 @@ class GroupIniOpt:
         for datadict in match_iniopt(ini_dict, opt_dict, basic_info):
             yield datadict
 
-    def __call__(self):
-        results_list = list(self.check_basic_info())
-        for results in tqdm(results_list):
-            for datadict in self.group_one_results(root, results):
-                yield datadict
+    def wrapped_group_one_results(self, results: Union[Path, str]):
+        return list(self.group_one_results(results))
+
+    def __call__(self, j=-1):
+        datadict_each_dir = Parallel(j, backend='multiprocessing')(
+            delayed(self.wrapped_group_one_results)(results)
+            for results in self.check_basic_info()
+        )
+        datadict_list = list(chain.from_iterable(datadict_each_dir))
+        return datadict_list
 
     @classmethod
     def from_file(cls, root, results_list_file):
@@ -547,7 +552,7 @@ def patch_before_insert(calyidx, datadict):
     return rawrecord
 
 
-def wrapper_insert(calyidx, datadict):
+def wrapper_patch_before_insert(calyidx, datadict):
     try:
         rawrecord = patch_before_insert(calyidx, datadict)
     except Exception as e:
@@ -558,9 +563,9 @@ def wrapper_insert(calyidx, datadict):
 
 
 if __name__ == "__main__":
-    root = "/home/share/calypsodata/raw/20230608"
-    root = "/home/share/calypsodata/raw/20230601/debug"
-    level = 12
+    # root = "/home/share/calypsodata/raw/20230608"
+    # root = "/home/share/calypsodata/raw/20230601/debug"
+    # level = 12
     # for d in get_results_dir(root, level):
     #     print(d)
     # db = login(dotenv_path=".env-maintain")
@@ -591,7 +596,15 @@ if __name__ == "__main__":
     # rawcol.insert_many(rawrecord_list)
 
     # -- Insert from saved pkl ---------------------------
-    # with open(f"{root}/rawrecord.pkl", "rb") as f:
-    #     rawrecord_list = pickle.load(f)
-    # rawcol.insert_many(rawrecord_list)
+    # db = login(dotenv_path=".env-maintain")
+    # raw = db.get_collection('raw')
+    # cur_caly_max_idx = get_current_caly_max_index(raw)
+    # with open(sys.argv[1], "rb") as f:
+    #     datadict_list = pickle.load(f)
+    # rawrecord_list = Parallel(-1, backend="multiprocessing")(
+    #     delayed(wrapper_patch_before_insert)(calyidx, datadict)
+    #     for calyidx, datadict in tqdm(enumerate(datadict_list, cur_caly_max_idx + 1))
+    # )
+    # rawrecord_list = [record for record in rawrecord_list if record is not None]
+    # raw.insert_many(rawrecord_list)
     # ----------------------------------------------------
