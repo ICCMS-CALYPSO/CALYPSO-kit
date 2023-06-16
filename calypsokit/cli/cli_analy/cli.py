@@ -4,7 +4,7 @@ import click
 
 from calypsokit.utils.lazy import LazyLoader
 
-funcs = LazyLoader('cli_analy_funcs', globals(), 'calypsokit.cli_analy.funcs')
+funcs = LazyLoader('cli_analy_funcs', globals(), 'calypsokit.cli.cli_analy.funcs')
 
 
 @click.group("analy")
