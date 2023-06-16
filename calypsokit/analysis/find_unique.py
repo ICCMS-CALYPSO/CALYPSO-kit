@@ -95,7 +95,8 @@ class UniqueFinder:
     def update(self, newerdate, *, version):
         cursor = self.group(newerdate)
         uniq_list = self.find_unique(cursor)
-        dup_one = self.uniqcol.find_one({"_id": {"$in": uniq_list}})
+        # dup_one = self.uniqcol.find_one({"_id": {"$in": uniq_list}})
+        dup_one = None
         if dup_one is not None:
             print(f"Found one duplicated in {self.uniqcol} : {dup_one}")
             print("Please try other newerdate")
@@ -135,9 +136,11 @@ class UniqueFinder:
 
         unique_list = []  # _id
         for i_id in ids:
-            i_structure, i_properties = qs[i_id]
+            i_structure = qs[i_id]["_structure_"]
+            i_properties = qs[i_id]
             for j_id in unique_list:
-                j_structure, j_properties = qs[j_id]
+                j_structure = qs[j_id]["_structure_"]
+                j_properties = qs[j_id]
                 same_sym = (
                     i_properties["symmetry"]["1e-1"]["number"]
                     == j_properties["symmetry"]["1e-1"]["number"]
@@ -180,37 +183,13 @@ class UniqueFinder:
 
 
 if __name__ == '__main__':
+    pass
     # ---------------------------------------------------------------
     # Uncomment the following to run find unique
-    # pipeline = pipe_group_task_formula()
-    # # pipline.append({"$match": {"count": {"$lt": 20}}})
-    # # pipline.append({"$limit": 3})
     # db = login()
-    # col = db.get_collection("rawcol")
-    # cur = list(col.aggregate(pipeline))
-    # results = Parallel(backend="multiprocessing")(
-    #     delayed(find_unique)(record_task_formula) for record_task_formula in tqdm(cur)
-    # )
-    # unique_list = list(chain.from_iterable(results))
+    # raw = db.get_collection("raw")
+    # uniq = db.get_collection("uniq")
+    # uniquefinder = UniqueFinder(raw, uniq)
+    # newerdate = (2023, 6, 1)
+    # uniquefinder.update(newerdate, version=20230616)
     # ---------------------------------------------------------------
-
-    import pickle
-
-    # with open("unique.pkl", "rb") as f:
-    #     unique_list = pickle.load(f)
-    # # print(unique_list)
-    # db = login(dotenv_path=".env-maintain")
-    # uniqcol = db.get_collection("uniqcol")
-    # uniqcol.insert_many(
-    #     [{"_id": uniq_id, "version": 20230601} for uniq_id in unique_list]
-    # )
-    #
-    # data = {"unique_ids": unique_list, "last_updated_utc": datetime.utcnow()}
-    # uniqcol.insert_one(data)
-
-    # maintain deprecated
-    # db = login()
-    # rawcol = db.get_collection("rawcol")
-    # uniqcol = db.get_collection("uniqcol")
-    # uniqfinder = UniqueFinder(rawcol, uniqcol)
-    # uniqfinder.maintain_deprecated()
