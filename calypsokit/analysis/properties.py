@@ -118,9 +118,55 @@ def get_pressure_range(pressure: float, length=0.2, closed="right") -> dict:
     }
 
 
+def get_crystal_system(n: int) -> str:
+    """Get the crystal system for the structure, e.g., (triclinic, orthorhombic,
+    cubic, etc.).
+
+        Parameters
+        ----------
+        n : int
+            space group number
+
+        Returns
+        -------
+        crystal_system: str
+            crystal system,
+            triclinic|monoclic|orthorhombic|tetragonal|trigonal|hexagonal|cubic
+
+        Raises
+        ------
+        ValueError
+            space group number is not int or not in [1, 230]
+    """
+    if not isinstance(n, int):
+        raise ValueError(f"Invalid space group number: {n}")
+    elif n < 0:
+        raise ValueError(f"Invalid space group number: {n}")
+    elif n < 3:
+        return "triclinic"
+    elif n < 16:
+        return "monoclinic"
+    elif n < 75:
+        return "orthorhombic"
+    elif n < 143:
+        return "tetragonal"
+    elif n < 168:
+        return "trigonal"
+    elif n < 195:
+        return "hexagonal"
+    elif n < 231:
+        return "cubic"
+    else:
+        raise ValueError(f"Invalid space group number: {n}")
+
+
 def get_symmetry(atoms: Atoms, symprec):
     spg = get_spacegroup(atoms, symprec)
-    return {"number": spg.no, "symbol": spg.symbol, "crystal_system": get_crystal_system(spg.no)}
+    return {
+        "number": spg.no,
+        "symbol": spg.symbol,
+        "crystal_system": get_crystal_system(spg.no),
+    }
 
 
 def wrapped_get_symmetry(atoms: Atoms):
@@ -297,31 +343,3 @@ def get_poscar_str(structure):
     else:
         raise ValueError(f"Unknown type of {structure=}")
     return vasp
-
-
-def get_crystal_system(n):
-    """Get the crystal system for the structure, e.g., (triclinic, orthorhombic,
-    cubic, etc.).
-
-    Raises:
-        ValueError: on invalid space group numbers < 1 or > 230.
-
-    Returns:
-        (str): Crystal system for structure
-    """
-    if not (n == int(n) and 0 < n < 231):
-        raise ValueError(f"Received invalid space group {n}")
-
-    if 0 < n < 3:
-        return "triclinic"
-    if n < 16:
-        return "monoclinic"
-    if n < 75:
-        return "orthorhombic"
-    if n < 143:
-        return "tetragonal"
-    if n < 168:
-        return "trigonal"
-    if n < 195:
-        return "hexagonal"
-    return "cubic"

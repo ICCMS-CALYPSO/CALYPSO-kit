@@ -16,7 +16,7 @@ from ase import Atoms
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-import calypsokit.analysis.properties as properties
+from calypsokit.analysis import properties
 from calypsokit.analysis.legacy.read_inputdat import readinput
 from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import get_current_caly_max_index
@@ -563,48 +563,20 @@ def wrapper_patch_before_insert(calyidx, datadict):
 
 
 if __name__ == "__main__":
-    # root = "/home/share/calypsodata/raw/20230608"
-    # root = "/home/share/calypsodata/raw/20230601/debug"
-    # level = 12
-    # for d in get_results_dir(root, level):
-    #     print(d)
-    # db = login(dotenv_path=".env-maintain")
-    # rawcol = db.get_collection("rawcol")
-    # cur_caly_max_idx = get_current_caly_max_index(rawcol)
-    # print(f"{cur_caly_max_idx=}")
-
-    # -- Check basic info --------------------------------
-    # print(check_basic_info(root, level))
-
-    # -- Check get_results_dir  --------------------------------
-    # print(sorted(get_results_dir(root, level=8)))
-
-    # -- Check group_iniopt  --------------------------------
-    # print(next(group_iniopt(root, level=8)))
-
-    # -- Find and update ---------------------------------
-    # cur_caly_max_idx = 0
-    # rawrecord_list = Parallel(1, backend="multiprocessing")(
-    #     delayed(wrapper_insert)(cur_caly_max_idx + idx + 1, datadict)
-    #     for idx, datadict in enumerate(group_iniopt(root, level))
-    # )
-    # rawrecord_list = [rawcol for rawcol in rawrecord_list if rawcol is not None]
-    # print(rawrecord_list)
-    # print(len(rawrecord_list))
-    # with open(f"{root}/rawrecord.pkl", "wb") as f:
-    #     pickle.dump(rawrecord_list, f)
-    # rawcol.insert_many(rawrecord_list)
-
+    pass
     # -- Insert from saved pkl ---------------------------
     # db = login(dotenv_path=".env-maintain")
     # raw = db.get_collection('raw')
     # cur_caly_max_idx = get_current_caly_max_index(raw)
-    # with open(sys.argv[1], "rb") as f:
+    # cur_caly_max_idx = 1107480
+    # data_file = Path(sys.argv[1])
+    # with open(data_file, "rb") as f:
     #     datadict_list = pickle.load(f)
-    # rawrecord_list = Parallel(-1, backend="multiprocessing")(
+    # rawrecord_list = Parallel(30, backend="multiprocessing")(
     #     delayed(wrapper_patch_before_insert)(calyidx, datadict)
     #     for calyidx, datadict in tqdm(enumerate(datadict_list, cur_caly_max_idx + 1))
     # )
     # rawrecord_list = [record for record in rawrecord_list if record is not None]
+    # # rawrecord_list = pickle.load(open(sys.argv[1], 'rb'))
     # raw.insert_many(rawrecord_list)
     # ----------------------------------------------------
