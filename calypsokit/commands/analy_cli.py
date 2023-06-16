@@ -4,7 +4,7 @@ import click
 
 from calypsokit.utils.lazy import LazyLoader
 
-funcs = LazyLoader('cli_analy_funcs', globals(), 'calypsokit.cli.cli_analy.funcs')
+funcs = LazyLoader('cli_analy_funcs', globals(), 'calypsokit.commands.analy_funcs')
 
 
 @click.group("analy")
@@ -56,3 +56,16 @@ def test_extract(root, results):
 def pickle_results(root, results_tree, outpickle):
     """extract and dump all ini-opt from given <results> dirs"""
     funcs.extract_all(root, results_tree, outpickle)
+
+
+@analy.command()
+@click.argument('root', type=click.Path())
+@click.option(
+    '-f', '--results_tree', type=click.Path(exists=True), help="file of results list"
+)
+@click.option(
+    '-c', '--config', type=click.Path(), default='.env', help="MongoDB env var, (.env)"
+)
+@click.option('-col', '--collection')
+def insert_results(root, results_tree, config, collection):
+    funcs.insert_results(root, results_tree, config, collection)
