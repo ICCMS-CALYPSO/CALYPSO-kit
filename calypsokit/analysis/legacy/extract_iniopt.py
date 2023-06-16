@@ -155,7 +155,7 @@ def extract_ini_structures(root, results_dir, basic_info):
 
     struct = {}
     for ini_fname in results_dir.rglob("pso_ini_*"):
-        source = str(ini_fname.relative_to(root.parent))  # <date>/**/pso_ini_*
+        source = str(ini_fname.relative_to(root))  # <date>/**/pso_ini_*
         # idx_pref: (results/)   "**/pso_ini_*"   (may VSC)
         idx_pref = str(ini_fname.relative_to(results_dir)).replace("pso_ini", "pso_sid")
         with open(ini_fname, 'r') as f:
@@ -223,7 +223,7 @@ def extract_ini_structures(root, results_dir, basic_info):
                     )
                     cell = np.asarray(lattice_vectors)
                     scaled_positions = np.asarray(coordinates)
-                    positions = scaled_positions @ cell.T
+                    positions = scaled_positions @ cell
                     (
                         density,
                         volume,
@@ -276,7 +276,7 @@ def extract_opt_structures(root, results_dir, basic_info):
 
     struct = {}
     for opt_fname in results_dir.rglob("pso_opt_*"):
-        source = str(opt_fname.relative_to(root.parent))  # <date>/**/pso_ini_*
+        source = str(opt_fname.relative_to(root))  # <date>/**/pso_ini_*
         # idx_pref: (results/)   "**/pso_ini_*"   (may VSC)
         idx_pref = str(opt_fname.relative_to(results_dir)).replace("pso_opt", "pso_sid")
         with open(opt_fname, 'r') as f:
@@ -349,7 +349,7 @@ def extract_opt_structures(root, results_dir, basic_info):
                     )
                     cell = np.asarray(lattice_vectors)
                     scaled_positions = np.asarray(coordinates)
-                    positions = scaled_positions @ cell.T
+                    positions = scaled_positions @ cell
                     (
                         density,
                         volume,
@@ -432,7 +432,7 @@ def match_iniopt(ini_dict, opt_dict, basic_info):
             }
             atoms = Atoms(
                 opt_dict[key]["species"],
-                opt_dict[key]["positions"],
+                scaled_positions=opt_dict[key]["scaled_positions"],
                 cell=opt_dict[key]["cell"],
                 pbc=True,
             )
@@ -443,6 +443,9 @@ def match_iniopt(ini_dict, opt_dict, basic_info):
             opt_dict[key]["min_distance"] = properties.get_min_distance(atoms)
             opt_dict[key]["volume_rate"] = (
                 opt_dict[key]["volume"] / opt_dict[key]["clospack_volume"]
+            )
+            opt_dict[key]["clospack_volume_per_atom"] = (
+                opt_dict[key]["clospack_volume"] / opt_dict[key]["natoms"]
             )
             # ---------------------------------------------------------------------
             trajectory["kabsch"] = properties.get_kabsch_info(
@@ -545,7 +548,7 @@ def patch_before_insert(calyidx, datadict):
     material_id, source = create_caly_id(calyidx)
     symmetry = properties.wrapped_get_symmetry_from_datadict(datadict)
     datadict["symmetry"] = symmetry
-    datadict["material_id"] = material_id
+    # datadict["material_id"] = material_id
     datadict["source"] = source
     rawrecord = RecordDict(datadict)
     rawrecord.update_time()

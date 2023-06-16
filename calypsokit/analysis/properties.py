@@ -179,8 +179,8 @@ def wrapped_get_symmetry(atoms: Atoms):
 def wrapped_get_symmetry_from_datadict(datadict):
     species = datadict["species"]
     cell = datadict["cell"]
-    positions = datadict["positions"]
-    atoms = Atoms(species, cell=cell, positions=positions)
+    scaled_positions = datadict["scaled_positions"]
+    atoms = Atoms(species, cell=cell, scaled_positions=scaled_positions)
     return wrapped_get_symmetry(atoms)
 
 
