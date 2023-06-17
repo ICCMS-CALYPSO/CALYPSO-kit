@@ -18,9 +18,27 @@ def test_connect(env: str, collection: str):
     funcs.test_connect(env, collection)
 
 
-# @db.command()
-# @click.option('--env', type=click.Path(), default='.env', help="env var, (.env)")
-# @click.option('-c', '--collection', help="collection name")
-# def clean_energy(env: str, collection: str):
-#     assert isinstance(collection, str), "collection name must be a string"
-#     pass
+@db.command()
+@click.option('--env', type=click.Path(), default='.env', help="env var, (.env)")
+@click.option('-c', '--collection', help="collection name")
+@click.option(
+    '--mindate', nargs=6, default=None, help="year month day hour miniute second"
+)
+@click.option(
+    '--maxdate', nargs=6, default=None, help="year month day hour miniute second"
+)
+def deprecate(env: str, collection: str, mindate: tuple, maxdate: tuple):
+    assert isinstance(collection, str), "collection name must be a string"
+    if mindate is not None:
+        mindate = tuple(map(int, mindate))
+    if maxdate is not None:
+        maxdate = tuple(map(int, maxdate))
+    funcs.deprecate(env, collection, mindate, maxdate)
+
+
+@db.command()
+@click.option('--env', type=click.Path(), default='.env', help="env var, (.env)")
+@click.option('-c', '--collection', help="collection name")
+def check_duplicate(env: str, collection: str):
+    assert isinstance(collection, str), "collection name must be a string"
+    funcs.check_duplicate(env, collection)

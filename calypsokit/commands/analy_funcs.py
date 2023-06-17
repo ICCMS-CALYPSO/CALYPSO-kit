@@ -58,3 +58,5 @@ def insert_results(root, results_tree, config, collection):
         if len(rawrecord_list) > 0:
             print(f"In iresults {iresults} , inserting {len(rawrecord_list)}")
             col.insert_many(rawrecord_list)
+        else:
+            print(f"{results_dir} has no valid record")

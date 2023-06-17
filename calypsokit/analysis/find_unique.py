@@ -37,12 +37,12 @@ class UniqueFinder:
         >>> rawcol: rawcol
         >>> uniqcol: uniqcol
         >>> uniquefinder = UniqueFinder(rawcol, uniqcol)
-        >>> newerdate = (2023, 6, 8)
-        >>> uniquefinder.update(newerdate)
+        >>> mindate = (2023, 6, 8)
+        >>> uniquefinder.update(mindate, version="*")
 
         for debug
 
-        >>> for uniq_list in uniquefinder.check(newerdate):
+        >>> for uniq_list in uniquefinder.check(mindate):
         ...     print(uniq_list)
         [ObjectId('...'), ...]
 
@@ -62,7 +62,7 @@ class UniqueFinder:
         self.matcher = StructureMatcher(**match_kwargs)
 
     @lru_cache
-    def group(self, mindate, maxdate):
+    def group(self, mindate=None, maxdate=None):
         """get the group records list newer than `newerdate`
 
         Parameters
@@ -83,8 +83,8 @@ class UniqueFinder:
         )
         return cursor
 
-    def check(self, newerdate):
-        cursor = self.group(newerdate)
+    def check(self, mindate=None, maxdate=None):
+        cursor = self.group(mindate, maxdate)
         for cur in cursor:
             i_uniq_list = self.find_unique_in_group(cur)
             dup_one = self.uniqcol.find_one({"_id": {"$in": i_uniq_list}})

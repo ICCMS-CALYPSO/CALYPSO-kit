@@ -27,16 +27,15 @@ def deprecate_large_enthalpy(collection):
         }
     }
     # Mark those as deprecated
-    collection.update_many(fil, upd)
+    res = collection.update_many(fil, upd)
+    print(f"{res.modified_count} records enthalpy/atom larger than 610612508 cleaned.")
     # Check if there exist left
     if collection.find_one(fil) is not None:
-        print("Still exist energy_per_atom larger than 610612508")
-    else:
-        print("Cleaned energy_per_atom larger than 610612508")
+        print("Still exist enthalpy/atom larger than 610612508.")
 
 
 # 清理每个任务少于lte(=10)个的结构（不考虑变组分）
-def deprecate_less_task(collection, newerdate, lte: int = 10):
+def deprecate_less_task(collection, mindate=None, maxdate=None, lte: int = 10):
     """mark those number structures in one task <= `lte` as deprecated
 
     Will auto-check after run
@@ -44,19 +43,27 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
     Examples
     --------
     >>> col: pymongo.collection.Collection
-    >>> newerdate = (2023, 1, 1)
+    >>> mindate = (2023, 1, 1)
     >>> lte = 10
-    >>> deprecate_less_task(col, newerdate, 10)
+    >>> deprecate_less_task(col, mindate, 10)
 
     Parameters
     ----------
     collection : pymongo.collection.Collection
-    newerdate : tuple
-        utc date, (year, month, day, hour, minute, second, ...)
+    mindate, maxdate : tuple, optional
+        utc date (year, month, day, hour, minute, second, ...) of 'last_updated_utc',
+        None for 0 and 9999, all None for total.
     lte : int, optional
         <= threshold, by default 10
     """
-    pipeline = Pipes.newer_records(newerdate) + Pipes.group_task(lte=lte)
+    if mindate is None and maxdate is None:
+        pipeline = Pipes.group_task(lte=lte) + [{"$match": {"deprecated": False}}]
+    else:
+        pipeline = (
+            Pipes.daterange_records(mindate, maxdate)
+            + Pipes.group_task(lte=lte)
+            + [{"$match": {"deprecated": False}}]
+        )
     udp = {
         "$set": {
             "deprecated": True,
@@ -70,6 +77,7 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
         collection.update_many(
             {"deprecated": False, "_id": {"$in": record["ids"]}}, udp
         )
+    print(f"{len(cursor)} groups cleaned.")
     # Check if there exist left
     cleaned_flag = True
     for record in cursor:
@@ -81,13 +89,13 @@ def deprecate_less_task(collection, newerdate, lte: int = 10):
             cleaned_flag = False
     if cleaned_flag:
         print(
-            f"Cleaned task newer than ({datetime(*newerdate)}) "
+            f"Cleaned task between ({mindate}, {maxdate}) "
             f"which number of structure <= {lte}"
         )
 
 
 # 清理每组任务每个分子式中能量很低的孤立结构（间隔超过delta=1eV）的结构
-def clean_solitary_enth(collection, newerdate=None, delta=1.0):
+def deprecate_solitary_enth(collection, mindate=None, maxdate=None, delta=1.0):
     """mark those solitary energy structure as deprecated
 
     Filter the newer (if do) and not deprecated records, group them by task and
@@ -97,14 +105,14 @@ def clean_solitary_enth(collection, newerdate=None, delta=1.0):
     Examples
     --------
     >>> col: pymongo.collection.Collection
-    >>> clean_solitary_enth(col, (2023, 1, 1), 1.0)
+    >>> clean_solitary_enth(col, (2023, 1, 1), delta=1.0)
 
     Parameters
     ----------
     collection : pymongo.collection.Collection
-    newerdate : tuple, optional
-        utc date, (year, month, day, hour, minute, second, ...), None for not filter
-        'last_updated_utc'
+    mindate, maxdate : tuple, optional
+        utc date (year, month, day, hour, minute, second, ...) of 'last_updated_utc',
+        None for 0 and 9999, all None for total.
     delta : float, optional
         determine solitary by energy delta, by default 1.0
     """
@@ -112,10 +120,10 @@ def clean_solitary_enth(collection, newerdate=None, delta=1.0):
         "deprecated": True,
         "deprecated_reason": "error enthalpy : solitary and too small",
     }
-    pipeline = []
-    if newerdate is not None:
-        pipeline += Pipes.newer_records(newerdate)
-    pipeline += Pipes.sort_enthalpy()
+    if mindate is None and maxdate is None:
+        pipeline = Pipes.sort_enthalpy()
+    else:
+        pipeline = Pipes.daterange_records(mindate, maxdate) + Pipes.sort_enthalpy()
     for record in collection.aggregate(pipeline):
         naccumu = 0
         # 只检查相邻能量间隔为1eV的前5组

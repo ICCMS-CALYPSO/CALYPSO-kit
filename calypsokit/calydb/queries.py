@@ -167,12 +167,11 @@ class Pipes:
         return pipeline
 
     @staticmethod
-    def newer_records(newerdate):
-        pipeline = [{"$match": {"last_updated_utc": {"$gt": datetime(*newerdate)}}}]
-        return pipeline
-
-    @staticmethod
-    def daterange_records(mindate, maxdate):
+    def daterange_records(mindate=None, maxdate=None):
+        if mindate is None:
+            mindate = (1, 1, 1, 0, 0, 0)
+        if maxdate is None:
+            maxdate = (9999, 12, 31, 23, 59, 59)
         pipeline = [
             {
                 "$match": {
@@ -305,6 +304,24 @@ class Pipes:
         ] + Pipes.unique_records(uniqcol)
         return pipeline
 
+    @staticmethod
+    def check_duplicate():
+        pipeline = [
+            # {"$limit": 100},
+            {
+                "$group": {
+                    "_id": {
+                        "file": {"$arrayElemAt": ["$trajectory.source_file", 0]},
+                        "idx": {"$arrayElemAt": ["$trajectory.source_idx", 0]},
+                    },
+                    "count": {"$sum": 1},
+                    "ids": {"$push": "$_id"},
+                }
+            },
+            {"$match": {"count": {"$gt": 1}}},
+        ]
+        return pipeline
+
 
 def get_current_caly_max_index(collection) -> int:
     """get max calypso index in the collection
@@ -336,3 +353,12 @@ def get_edge_time(collection, side):
     else:
         t = cursor[0]["last_updated_utc"]
         return (t.year, t.month, t.day, t.hour, t.minute, t.second)
+
+
+def check_duplicate(collection):
+    cur = list(collection.aggregate(Pipes.check_duplicate()))
+    for rec in cur:
+        str_ids = " ".join(map(str, rec["ids"]))
+        print(f"{len(rec)} duplicates, _id list {str_ids}")
+    else:
+        print("No duplicates")
