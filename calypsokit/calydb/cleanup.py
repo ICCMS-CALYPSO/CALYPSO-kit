@@ -1,7 +1,11 @@
+import logging
+
 from datetime import datetime
 
 from calypsokit.calydb.queries import Pipes
 from calypsokit.utils.itertools import groupby_delta
+
+logger = logging.getLogger(__name__)
 
 
 # 清理enthalpy=610612509的结构
@@ -28,10 +32,12 @@ def deprecate_large_enthalpy(collection):
     }
     # Mark those as deprecated
     res = collection.update_many(fil, upd)
-    print(f"{res.modified_count} records enthalpy/atom larger than 610612508 cleaned.")
+    logger.info(
+        f"{res.modified_count} records enthalpy/atom larger than 610612508 cleaned."
+    )
     # Check if there exist left
     if collection.find_one(fil) is not None:
-        print("Still exist enthalpy/atom larger than 610612508.")
+        logger.warning("Still exist enthalpy/atom larger than 610612508.")
 
 
 # 清理每个任务少于lte(=10)个的结构（不考虑变组分）
@@ -77,7 +83,7 @@ def deprecate_less_task(collection, mindate=None, maxdate=None, lte: int = 10):
         collection.update_many(
             {"deprecated": False, "_id": {"$in": record["ids"]}}, udp
         )
-    print(f"{len(cursor)} groups cleaned.")
+    logger.info(f"{len(cursor)} groups cleaned.")
     # Check if there exist left
     cleaned_flag = True
     for record in cursor:
@@ -85,10 +91,10 @@ def deprecate_less_task(collection, mindate=None, maxdate=None, lte: int = 10):
             collection.find_one({"deprecated": False, "_id": {"$in": record["ids"]}})
             is not None
         ):
-            print(f"Still exist uncleaned records: {record}")
+            logger.warning(f"Still exist uncleaned records: {record}")
             cleaned_flag = False
     if cleaned_flag:
-        print(
+        logger.info(
             f"Cleaned task between ({mindate}, {maxdate}) "
             f"which number of structure <= {lte}"
         )
@@ -133,7 +139,7 @@ def deprecate_solitary_enth(collection, mindate=None, maxdate=None, delta=1.0):
                 break
             elif len(ene_group) == 1:  # 孤立组，需要删除
                 # solitary_id = record["sorted_ids"][naccumu - 1]
-                print("Solitary enthalpy:", record["_id"])
+                logger.info("Solitary enthalpy:", record["_id"])
                 # yield (solitary_id, update_dict)
                 collection.update_one(
                     {"_id": record["sorted_ids"][naccumu - 1]},
@@ -184,9 +190,9 @@ def clean_deprecated_unique(rawcol, uniqcol):
         record["matched_id"]["_id"] for record in rawcol.aggregate(pipeline)
     ]
     if len(deprecated_in_uniq) == 0:
-        print("Nothing to clean")
+        logger.info("Nothing to clean")
     else:
-        print(
+        logger.info(
             f"{len(deprecated_in_uniq)} deprecated records will be removed "
             f"from col: {uniqcol.name}"
         )

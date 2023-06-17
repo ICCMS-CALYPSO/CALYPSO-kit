@@ -1,7 +1,10 @@
+import logging
+
 import click
 
 from calypsokit.utils.lazy import LazyLoader
 
+logger = logging.getLogger(__name__)
 funcs = LazyLoader('cli_db_funcs', globals(), 'calypsokit.commands.db_funcs')
 
 

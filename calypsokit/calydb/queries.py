@@ -1,3 +1,5 @@
+import logging
+
 from collections import UserDict
 from datetime import datetime
 from typing import Any, Optional
@@ -5,6 +7,9 @@ from typing import Any, Optional
 from ase import Atoms
 from bson import ObjectId
 from pymatgen.core.structure import Structure
+
+
+logger = logging.getLogger(__name__)
 
 
 class QueryStructure(UserDict):
@@ -359,9 +364,9 @@ def check_duplicate(collection):
     cur = list(collection.aggregate(Pipes.check_duplicate()))
     for rec in cur:
         str_ids = " ".join(map(str, rec["ids"]))
-        print(f"{len(rec)} duplicates, _id list {str_ids}")
+        logger.info(f"{len(rec)} duplicates, _id list {str_ids}")
     else:
-        print("No duplicates")
+        logger.info("No duplicates")
     return cur
 
 

@@ -1,3 +1,5 @@
+import logging
+
 import pickle
 from pathlib import Path
 from pprint import pprint
@@ -14,6 +16,8 @@ from calypsokit.analysis.legacy.extract_iniopt import (
 )
 from calypsokit.calydb.login import login
 from calypsokit.utils.itertools import batched
+
+logger = logging.getLogger(__name__)
 
 
 def find_results(root, level):

@@ -3,14 +3,13 @@
 # Warning: Do not run this file unless you know what you're doing and have already
 # made the proper modification
 
+import logging
 import pickle
 import sys
 from itertools import chain
 from pathlib import Path
-from pprint import pprint
 from typing import Union
 
-import click
 import numpy as np
 from ase import Atoms
 from joblib import Parallel, delayed
@@ -22,10 +21,12 @@ from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import get_current_caly_max_index
 from calypsokit.calydb.record import RecordDict
 
+logger = logging.getLogger(__name__)
+
 try:
     from calypsokit.analysis.legacy.contactbook import contactbook
 except ModuleNotFoundError as e:
-    print("ERROR: you do not have the contact book, cannot run this module")
+    logger.exception("You do not have the contact book, cannot run this module")
     raise e
 
 
@@ -261,7 +262,7 @@ def extract_ini_structures(root, results_dir, basic_info):
                 i += 1
 
             except Exception as e:
-                print(f"Error extracting structure at line {i + 1}: {str(e)}")
+                logger.error(f"Error extracting structure at line {i + 1}: {str(e)}")
 
     return struct
 
@@ -389,7 +390,7 @@ def extract_opt_structures(root, results_dir, basic_info):
             except Exception as e:
                 # sys.exit()
                 i += 1
-                print(f"Error extracting structure at line {i + 1}: {str(e)}")
+                logger.error(f"Error extracting structure at line {i + 1}: {str(e)}")
                 continue
     return struct
 
@@ -459,7 +460,7 @@ def match_iniopt(ini_dict, opt_dict, basic_info):
             )
             # ---------------------------------------------------------------------
         except Exception as e:
-            print(e)
+            logger.exception(f"{e}")
             continue
         else:
             data = {
@@ -504,7 +505,7 @@ class GroupIniOpt:
             try:
                 get_basic_info(self.root, results)
             except Exception as e:
-                print(f"{results} failed : {e}")
+                logger.exception(f"{results} failed : {e}")
             else:
                 yield results
 
@@ -559,7 +560,7 @@ def wrapper_patch_before_insert(calyidx, datadict):
     try:
         rawrecord = patch_before_insert(calyidx, datadict)
     except Exception as e:
-        print(e)
+        logger.exception(f"{e}")
         return
     else:
         return rawrecord

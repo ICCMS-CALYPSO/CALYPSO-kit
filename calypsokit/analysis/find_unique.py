@@ -3,6 +3,7 @@
 # This file may need modification for more specific unique-finding method
 
 
+import logging
 from datetime import datetime
 from functools import lru_cache
 from itertools import chain
@@ -14,6 +15,8 @@ from tqdm import tqdm
 
 from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import Pipes, QueryStructure
+
+logger = logging.getLogger(__name__)
 
 
 class UniqueFinder:
@@ -89,8 +92,7 @@ class UniqueFinder:
             i_uniq_list = self.find_unique_in_group(cur)
             dup_one = self.uniqcol.find_one({"_id": {"$in": i_uniq_list}})
             if dup_one is not None:
-                print(f"Found one duplicated in {self.uniqcol} : {dup_one}")
-                print("Please try other newerdate")
+                logger.info(f"Found one duplicated in {self.uniqcol} : {dup_one}")
             yield i_uniq_list
 
     def update(
@@ -103,9 +105,9 @@ class UniqueFinder:
                 [{"_id": uniq_id, "version": version} for uniq_id in uniq_list],
                 ordered=False,
             )
-            print("Documents inserted successfully.")
+            logger.info("Documents inserted successfully.")
         except pymongo.errors.DuplicateKeyError:
-            print("Duplicate _id encountered. Skipped duplicate documents.")
+            logger.info("Duplicate _id encountered. Skipped duplicate documents.")
 
     def find_unique(self, cursor):
         results = Parallel(backend="multiprocessing")(
@@ -127,10 +129,8 @@ class UniqueFinder:
         _type_
             _description_
         """
+        logger.log(19, f"Finding unique in {task_formula_group['_id']['task']}")
         ids = task_formula_group["ids"]
-        # task = record_task_formula["_id"]["task"]
-        # formula = record_task_formula["_id"]["formula"]
-        # print(task, formula, record_task_formula["count"])
         projection = {"symmetry.1e-1.number": 1, "enthalpy_per_atom": 1}
 
         qs = QueryStructure(self.rawcol, projection)
@@ -163,14 +163,11 @@ class UniqueFinder:
                     # do not match, add
                     else:
                         unique_list.append(i_id)
-                        # print(i_properties["enthalpy_per_atom"])
                         break
                 # otherwise treat as a different one
             # do not match to any one, add
             else:
                 unique_list.append(i_id)
-        # result energy list
-        # print(sorted([qs[_id][1]["enthalpy_per_atom"] for _id in unique_list]))
         return unique_list
 
     def maintain_deprecated(self):
@@ -179,9 +176,10 @@ class UniqueFinder:
         pipeline += Pipes.unique_records(self.uniqcol.name)
         pipeline += [{"$group": {"_id": None, "ids": {"$push": "$_id"}}}]
         for record in self.rawcol.aggregate(pipeline):
-            print(f"{len(record['ids'])} records will be deleted from {self.uniqcol}")
+            logger.info(f"Found {len(record['ids'])} records are deprecated.")
             self.uniqcol.delete_many({"_id": {"$in": record["ids"]}})
-        print("Deleted")
+            logger.info(f"Deleted from {self.uniqcol.name}")
+        logger.info("Finished maintain")
 
 
 if __name__ == '__main__':
