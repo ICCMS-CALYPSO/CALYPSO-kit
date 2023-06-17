@@ -42,3 +42,12 @@ def deprecate(env: str, collection: str, mindate: tuple, maxdate: tuple):
 def check_duplicate(env: str, collection: str):
     assert isinstance(collection, str), "collection name must be a string"
     funcs.check_duplicate(env, collection)
+
+
+@db.command()
+@click.option('--env', type=click.Path(), default='.env', help="env var, (.env)")
+@click.option('--rawcol', help="raw collection name")
+@click.option('--uniqcol', help="unique collection name")
+@click.option('--version', type=int, help="version number")
+def find_unique(env: str, rawcol: str, uniqcol: str, version: int):
+    funcs.find_unique(env, rawcol, uniqcol, version)

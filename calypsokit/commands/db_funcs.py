@@ -1,7 +1,9 @@
+import logging
 from pprint import pprint
 
 import calypsokit.calydb.cleanup as cleanup
 import calypsokit.calydb.queries as queries
+from calypsokit.analysis.find_unique import UniqueFinder
 from calypsokit.calydb.login import login
 
 
@@ -23,3 +25,12 @@ def check_duplicate(env: str, collection: str):
     db = login(dotenv_path=env)
     col = db.get_collection(collection)
     queries.check_duplicate(col)
+
+
+def find_unique(env: str, rawcol: str, uniqcol: str, version):
+    db = login(dotenv_path=env)
+    rawcol = db.get_collection(rawcol)
+    uniqcol = db.get_collection(uniqcol)
+    version = int(version)
+    uniquefinder = UniqueFinder(rawcol, uniqcol)
+    uniquefinder.update(version=version)
