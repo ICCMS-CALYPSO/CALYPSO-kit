@@ -133,12 +133,23 @@ def deprecate_solitary_enth(collection, mindate=None, maxdate=None, delta=1.0):
                 break
             elif len(ene_group) == 1:  # 孤立组，需要删除
                 # solitary_id = record["sorted_ids"][naccumu - 1]
-                # print(record["_id"])
+                print("Solitary enthalpy:", record["_id"])
                 # yield (solitary_id, update_dict)
                 collection.update_one(
                     {"_id": record["sorted_ids"][naccumu - 1]},
                     {"$set": update_dict},
                 )
+
+
+def deprecate_min_dist(collection):
+    min_dist = 0.5
+    update_dict = {
+        "deprecated": True,
+        "deprecated_reason": f"distance error : too close ({min_dist})",
+    }
+    collection.update_many(
+        {"deprecated": False, "min_distance": {"$lt": min_dist}}, {"$set": update_dict}
+    )
 
 
 def clean_deprecated_unique(rawcol, uniqcol):
