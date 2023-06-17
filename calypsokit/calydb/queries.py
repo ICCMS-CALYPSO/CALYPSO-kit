@@ -172,6 +172,35 @@ class Pipes:
         return pipeline
 
     @staticmethod
+    def daterange_records(mindate, maxdate):
+        pipeline = [
+            {
+                "$match": {
+                    "last_updated_utc": {
+                        "$gt": datetime(*mindate),
+                        "$lt": datetime(*maxdate),
+                    }
+                }
+            }
+        ]
+        return pipeline
+
+    @staticmethod
+    def get_edge_time(side):
+        if side == "max":
+            seq = -1
+        elif side == "min":
+            seq = 1
+        else:
+            raise ValueError("side must be 'max' or 'min'")
+        pipeline = [
+            {'$sort': {'last_updated_utc': seq}},
+            {'$limit': 1},
+            {'$project': {'last_updated_utc': 1}},
+        ]
+        return pipeline
+
+    @staticmethod
     def group_task(*, lte: int = -1) -> list[dict[str, Any]]:
         """Group task by trajectory.source_dir, then count number of not deprecated
         structure, filter by lte.
@@ -298,3 +327,12 @@ def get_current_caly_max_index(collection) -> int:
         return 0
     else:
         return cur[0]["source"]["index"]
+
+
+def get_edge_time(collection, side):
+    cursor = list(collection.aggregate(Pipes.get_newest_time(side)))
+    if len(cursor) == 0:
+        return (1, 1, 1, 0, 0, 0)
+    else:
+        t = cursor[0]["last_updated_utc"]
+        return (t.year, t.month, t.day, t.hour, t.minute, t.second)

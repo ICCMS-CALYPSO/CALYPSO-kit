@@ -7,6 +7,7 @@ from datetime import datetime
 from functools import lru_cache
 from itertools import chain
 
+import pymongo
 from joblib import Parallel, delayed
 from pymatgen.analysis.structure_matcher import StructureMatcher
 from tqdm import tqdm
@@ -61,7 +62,7 @@ class UniqueFinder:
         self.matcher = StructureMatcher(**match_kwargs)
 
     @lru_cache
-    def group(self, newerdate):
+    def group(self, mindate, maxdate):
         """get the group records list newer than `newerdate`
 
         Parameters
@@ -77,7 +78,7 @@ class UniqueFinder:
         # [task_formula_group, ...]
         cursor = list(
             self.rawcol.aggregate(
-                Pipes.newer_records(newerdate) + Pipes.group_task_formula()
+                Pipes.daterange_records(mindate, maxdate) + Pipes.group_task_formula()
             )
         )
         return cursor
@@ -92,18 +93,19 @@ class UniqueFinder:
                 print("Please try other newerdate")
             yield i_uniq_list
 
-    def update(self, newerdate, *, version):
-        cursor = self.group(newerdate)
+    def update(
+        self, mindate=(1, 1, 1, 0, 0, 0), maxdate=(9999, 12, 31, 0, 0, 0), *, version
+    ):
+        cursor = self.group(mindate, maxdate)
         uniq_list = self.find_unique(cursor)
-        # dup_one = self.uniqcol.find_one({"_id": {"$in": uniq_list}})
-        dup_one = None
-        if dup_one is not None:
-            print(f"Found one duplicated in {self.uniqcol} : {dup_one}")
-            print("Please try other newerdate")
-        else:
+        try:
             self.uniqcol.insert_many(
-                [{"_id": uniq_id, "version": version} for uniq_id in uniq_list]
+                [{"_id": uniq_id, "version": version} for uniq_id in uniq_list],
+                ordered=False,
             )
+            print("Documents inserted successfully.")
+        except pymongo.errors.DuplicateKeyError:
+            print("Duplicate _id encountered. Skipped duplicate documents.")
 
     def find_unique(self, cursor):
         results = Parallel(backend="multiprocessing")(
