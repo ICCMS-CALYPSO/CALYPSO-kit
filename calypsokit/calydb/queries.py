@@ -362,3 +362,9 @@ def check_duplicate(collection):
         print(f"{len(rec)} duplicates, _id list {str_ids}")
     else:
         print("No duplicates")
+    return cur
+
+
+def delete_duplicates(collection):
+    cur = check_duplicate(collection)
+    collection.delete_many({"_id": {"$in": [rec["ids"][0] for rec in cur]}})

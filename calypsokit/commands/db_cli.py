@@ -39,7 +39,7 @@ def deprecate(env: str, collection: str, mindate: tuple, maxdate: tuple):
 @db.command()
 @click.option('--env', type=click.Path(), default='.env', help="env var, (.env)")
 @click.option('-c', '--collection', help="collection name")
-def check_duplicate(env: str, collection: str):
+def check_duplicate(env: str, collection: str):  # TODO: add switch to delete (--delete)
     assert isinstance(collection, str), "collection name must be a string"
     funcs.check_duplicate(env, collection)
 
