@@ -297,19 +297,6 @@ class Pipes:
         return pipeline
 
     @staticmethod
-    def cdvae_records(uniqcol="uniqcol"):
-        pipeline = [
-            {
-                "$match": {
-                    "deprecated": False,
-                    "min_distance": {"$gte": 0.5, "$lte": 5.2},
-                    "volume_rate": {"$lte": 4},
-                }
-            },
-        ] + Pipes.unique_records(uniqcol)
-        return pipeline
-
-    @staticmethod
     def check_duplicate():
         pipeline = [
             # {"$limit": 100},

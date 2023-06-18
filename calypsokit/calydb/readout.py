@@ -8,7 +8,7 @@ from calypsokit.calydb.queries import Pipes
 
 
 class ReadOut:
-    def unique2cdvae(self, db, rawcol="rawcol", uniqcol="uniqcol", *, debug=-1):
+    def unique2cdvae(self, db, rawcol: str, uniqcol: str, *, debug=-1):
         """output filtered records as cdvae dataset
 
         Examples
@@ -25,10 +25,10 @@ class ReadOut:
         ----------
         db : _type_
             _description_
-        rawcol : str, optional
-            collection name of raw data, by default "rawcol"
+        rawcol: str, optional
+            collection name of raw data
         uniqcol : str, optional
-            collection name of unique data, by default "uniqcol"
+            collection name of unique data
         debug : int, optional
             limit number of output records, by default -1
 
@@ -36,7 +36,15 @@ class ReadOut:
         -------
         pd.DataFrame
         """
-        pipeline = Pipes.cdvae_records(uniqcol=uniqcol)
+        pipeline = [
+            {
+                "$match": {
+                    "min_distance": {"$gt": 0.5, "$lt": 5.2},
+                    "volume_rate": {"$lt": 4},
+                    'deprecated': False,
+                }
+            },
+        ] + Pipes.unique_records(uniqcol)
         if debug > 0:
             pipeline.append({"$limit": debug})
         projection = {
@@ -52,6 +60,7 @@ class ReadOut:
             "cif": 1,
         }
         pipeline.append({"$project": projection})
+
         records = db.get_collection(rawcol).aggregate(pipeline)
 
         ser_list = []

@@ -54,3 +54,11 @@ def check_duplicate(env: str, collection: str):  # TODO: add switch to delete (-
 @click.option('--version', type=int, help="version number")
 def find_unique(env: str, rawcol: str, uniqcol: str, version: int):
     funcs.find_unique(env, rawcol, uniqcol, version)
+
+
+@db.command()
+@click.option('--env', type=click.Path(), default='.env', help="env var, (.env)")
+@click.option('--rawcol', help="raw collection name")
+@click.option('--uniqcol', help="unique collection name")
+def maintain_unique(env: str, rawcol: str, uniqcol: str):
+    funcs.maintain_unique(env, rawcol, uniqcol)

@@ -19,6 +19,7 @@ def deprecate(env: str, collection: str, mindate, maxdate):
     cleanup.deprecate_large_enthalpy(col)
     cleanup.deprecate_less_task(col, mindate, maxdate)
     cleanup.deprecate_solitary_enth(col, mindate, maxdate)
+    cleanup.deprecate_min_dist(col)
 
 
 def check_duplicate(env: str, collection: str):
@@ -34,3 +35,11 @@ def find_unique(env: str, rawcol: str, uniqcol: str, version):
     version = int(version)
     uniquefinder = UniqueFinder(rawcol, uniqcol)
     uniquefinder.update(version=version)
+
+
+def maintain_unique(env: str, rawcol: str, uniqcol: str):
+    db = login(dotenv_path=env)
+    rawcol = db.get_collection(rawcol)
+    uniqcol = db.get_collection(uniqcol)
+    uniquefinder = UniqueFinder(rawcol, uniqcol)
+    uniquefinder.maintain_deprecated()

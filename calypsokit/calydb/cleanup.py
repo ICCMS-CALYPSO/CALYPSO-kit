@@ -1,5 +1,6 @@
 import logging
 
+import pymongo
 from datetime import datetime
 
 from calypsokit.calydb.queries import Pipes
@@ -23,6 +24,7 @@ def deprecate_large_enthalpy(collection):
     ----------
     collection : collection
     """
+    logger.info("Finding enthalpy/atom 610612509")
     fil = {"deprecated": False, "enthalpy_per_atom": {"$gt": 610612508}}
     upd = {
         "$set": {
@@ -62,6 +64,7 @@ def deprecate_less_task(collection, mindate=None, maxdate=None, lte: int = 10):
     lte : int, optional
         <= threshold, by default 10
     """
+    logger.info(f"Finding tasks with structures <= {lte}")
     if mindate is None and maxdate is None:
         pipeline = Pipes.group_task(lte=lte) + [{"$match": {"deprecated": False}}]
     else:
@@ -122,6 +125,7 @@ def deprecate_solitary_enth(collection, mindate=None, maxdate=None, delta=1.0):
     delta : float, optional
         determine solitary by energy delta, by default 1.0
     """
+    logger.info(f"Finding too small solitary enthalpy by delta: {delta}")
     update_dict = {
         "deprecated": True,
         "deprecated_reason": "error enthalpy : solitary and too small",
@@ -138,8 +142,8 @@ def deprecate_solitary_enth(collection, mindate=None, maxdate=None, delta=1.0):
             if len(ene_group) >= 10:  # 若出现连续较长的组，则不再检查后面的组
                 break
             elif len(ene_group) == 1:  # 孤立组，需要删除
-                # solitary_id = record["sorted_ids"][naccumu - 1]
-                logger.info("Solitary enthalpy:", record["_id"])
+                solitary_id = record["sorted_ids"][naccumu - 1]
+                logger.info(f"Solitary enthalpy structure: {solitary_id}")
                 # yield (solitary_id, update_dict)
                 collection.update_one(
                     {"_id": record["sorted_ids"][naccumu - 1]},
@@ -147,15 +151,17 @@ def deprecate_solitary_enth(collection, mindate=None, maxdate=None, delta=1.0):
                 )
 
 
-def deprecate_min_dist(collection):
+def deprecate_min_dist(collection: pymongo.collection.Collection):
     min_dist = 0.5
+    logger.info(f"Finding min distances less than {min_dist} A")
     update_dict = {
         "deprecated": True,
         "deprecated_reason": f"distance error : too close ({min_dist})",
     }
-    collection.update_many(
+    res = collection.update_many(
         {"deprecated": False, "min_distance": {"$lt": min_dist}}, {"$set": update_dict}
     )
+    logger.info(f"{res.modified_count} records are deprecated")
 
 
 def clean_deprecated_unique(rawcol, uniqcol):
