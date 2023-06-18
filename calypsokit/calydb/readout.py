@@ -1,10 +1,13 @@
 import io
+import logging
 from contextlib import redirect_stdout
 
 import pandas as pd
 from ase.io import write
 
 from calypsokit.calydb.queries import Pipes
+
+logger = logging.getLogger(__name__)
 
 
 class ReadOut:
@@ -61,14 +64,15 @@ class ReadOut:
         }
         pipeline.append({"$project": projection})
 
-        records = db.get_collection(rawcol).aggregate(pipeline)
-
+        logger.info("Start finding")
+        records = list(db.get_collection(rawcol).aggregate(pipeline))
+        logger.info("Parsing to DataFrame")
         ser_list = []
         for record in records:
             sym = record.pop("symmetry")
             record['spgno'] = sym["1e-1"]["number"]
             series = pd.Series(record)
             ser_list.append(series)
-
         df = pd.DataFrame(ser_list)
+        logger.info("Successfully to DataFrame")
         return df

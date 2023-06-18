@@ -5,6 +5,7 @@ import calypsokit.calydb.cleanup as cleanup
 import calypsokit.calydb.queries as queries
 from calypsokit.analysis.find_unique import UniqueFinder
 from calypsokit.calydb.login import login
+from calypsokit.calydb.readout import ReadOut
 
 
 def test_connect(env: str, collection: str):
@@ -43,3 +44,16 @@ def maintain_unique(env: str, rawcol: str, uniqcol: str):
     uniqcol = db.get_collection(uniqcol)
     uniquefinder = UniqueFinder(rawcol, uniqcol)
     uniquefinder.maintain_deprecated()
+
+
+def readout(
+    env: str = None,
+    rawcol: str = None,
+    uniqcol: str = None,
+    type: str = None,
+    outfile: str = None
+):
+    db = login(dotenv_path=env)
+    if type == 'cdvae':
+        df = ReadOut().unique2cdvae(db, rawcol, uniqcol)
+        df.to_feather(outfile)

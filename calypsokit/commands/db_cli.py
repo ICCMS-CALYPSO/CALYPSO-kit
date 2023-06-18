@@ -62,3 +62,13 @@ def find_unique(env: str, rawcol: str, uniqcol: str, version: int):
 @click.option('--uniqcol', help="unique collection name")
 def maintain_unique(env: str, rawcol: str, uniqcol: str):
     funcs.maintain_unique(env, rawcol, uniqcol)
+
+
+@db.command()
+@click.option('--env', type=click.Path(), default='.env', help="env var, (.env)")
+@click.option('--rawcol', help="raw collection name")
+@click.option('--uniqcol', help="unique collection name")
+@click.option('--type', type=click.Choice(['cdvae']))
+@click.option('--outfile', help="")
+def readout(env: str, rawcol: str, uniqcol: str, type, outfile):
+    funcs.readout(env, rawcol, uniqcol, type, outfile)
