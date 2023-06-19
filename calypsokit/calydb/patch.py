@@ -1,7 +1,7 @@
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-import calypsokit.analysis.properties as properties
+from calypsokit.analysis import properties
 from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import QueryStructure
 
@@ -166,6 +166,38 @@ class RawRecordPatcher:
             {"$set": {"trajectory.strain": strain_info}},
         )
 
+    def parallel_patch_cif(self):
+        cursor = self.rawcol.find(
+            {"deprecated": False, "cif": {"$exists": False}}, {"_id": 1}
+        )
+        _id_list = [record["_id"] for record in cursor]
+        Parallel(backend="multiprocessing")(
+            delayed(self._patch_cif)(_id) for _id in tqdm(_id_list)
+        )
+
+    def _patch_cif(self, _id):
+        record = self.qs.find_one({"_id": _id})
+        trajectory = record["_structure_"]
+        final_frame = trajectory[-1]
+        cif = properties.get_cif_str(final_frame)
+        self.rawcol.update_one({"_id": _id}, {"$set": {"cif": cif}})
+
+    def parallel_patch_poscar(self):
+        cursor = self.rawcol.find(
+            {"deprecated": False, "poscar": {"$exists": False}}, {"_id": 1}
+        )
+        _id_list = [record["_id"] for record in cursor]
+        Parallel(backend="multiprocessing")(
+            delayed(self._patch_poscar)(_id) for _id in tqdm(_id_list)
+        )
+
+    def _patch_poscar(self, _id):
+        record = self.qs.find_one({"_id": _id})
+        trajectory = record["_structure_"]
+        final_frame = trajectory[-1]
+        poscar = properties.get_poscar_str(final_frame)
+        self.rawcol.update_one({"_id": _id}, {"$set": {"poscar": poscar}})
+
 
 if __name__ == "__main__":
     db = login()
@@ -191,3 +223,8 @@ if __name__ == "__main__":
     # patcher.parallel_patch_shifted_d_frac()
     # print("patching strain")
     # patcher.parallel_patch_strain()
+    # ------------------------------------
+    # print("patching cif string")
+    # patcher.parallel_patch_cif()
+    # print("patching poscar string")
+    # patcher.parallel_patch_poscar()

@@ -1,3 +1,5 @@
+import io
+from contextlib import redirect_stdout
 from typing import Union
 
 import numpy as np
@@ -5,10 +7,13 @@ import scipy
 from ase import Atoms
 from ase.data import atomic_masses, atomic_numbers, covalent_radii
 from ase.formula import Formula
+from ase.io import write
 from ase.spacegroup import get_spacegroup
 from pymatgen.analysis.dimensionality import get_dimensionality_larsen
 from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.core.structure import Structure
+from pymatgen.io.cif import CifWriter
+from pymatgen.io.vasp import Poscar
 from scipy.linalg import polar
 from scipy.spatial.transform import Rotation as R
 
@@ -113,9 +118,55 @@ def get_pressure_range(pressure: float, length=0.2, closed="right") -> dict:
     }
 
 
+def get_crystal_system(n: int) -> str:
+    """Get the crystal system for the structure, e.g., (triclinic, orthorhombic,
+    cubic, etc.).
+
+        Parameters
+        ----------
+        n : int
+            space group number
+
+        Returns
+        -------
+        crystal_system: str
+            crystal system,
+            triclinic|monoclic|orthorhombic|tetragonal|trigonal|hexagonal|cubic
+
+        Raises
+        ------
+        ValueError
+            space group number is not int or not in [1, 230]
+    """
+    if not isinstance(n, int):
+        raise ValueError(f"Invalid space group number: {n}")
+    elif n < 0:
+        raise ValueError(f"Invalid space group number: {n}")
+    elif n < 3:
+        return "triclinic"
+    elif n < 16:
+        return "monoclinic"
+    elif n < 75:
+        return "orthorhombic"
+    elif n < 143:
+        return "tetragonal"
+    elif n < 168:
+        return "trigonal"
+    elif n < 195:
+        return "hexagonal"
+    elif n < 231:
+        return "cubic"
+    else:
+        raise ValueError(f"Invalid space group number: {n}")
+
+
 def get_symmetry(atoms: Atoms, symprec):
     spg = get_spacegroup(atoms, symprec)
-    return {"number": spg.no, "symbol": spg.symbol}
+    return {
+        "number": spg.no,
+        "symbol": spg.symbol,
+        "crystal_system": get_crystal_system(spg.no),
+    }
 
 
 def wrapped_get_symmetry(atoms: Atoms):
@@ -128,8 +179,8 @@ def wrapped_get_symmetry(atoms: Atoms):
 def wrapped_get_symmetry_from_datadict(datadict):
     species = datadict["species"]
     cell = datadict["cell"]
-    positions = datadict["positions"]
-    atoms = Atoms(species, cell=cell, positions=positions)
+    scaled_positions = datadict["scaled_positions"]
+    atoms = Atoms(species, cell=cell, scaled_positions=scaled_positions)
     return wrapped_get_symmetry(atoms)
 
 
@@ -269,3 +320,26 @@ def get_dim_larsen(structure: Structure):
         dim_larsen = -1
     return dim_larsen
 
+
+def get_cif_str(structure):
+    if isinstance(structure, Atoms):
+        with io.BytesIO() as buffer, redirect_stdout(buffer):  # type: ignore [type-var]
+            write('-', structure, format='cif')
+            cif = buffer.getvalue().decode()
+    elif isinstance(structure, Structure):
+        cif = str(CifWriter(structure).ciffile)
+    else:
+        raise ValueError(f"Unknown type of {structure=}")
+    return cif
+
+
+def get_poscar_str(structure):
+    if isinstance(structure, Atoms):
+        with io.StringIO() as buffer, redirect_stdout(buffer):
+            write('-', structure, format='vasp', direct=True)
+            vasp = buffer.getvalue()  # byte to string
+    elif isinstance(structure, Structure):
+        vasp = Poscar(structure).get_string()
+    else:
+        raise ValueError(f"Unknown type of {structure=}")
+    return vasp

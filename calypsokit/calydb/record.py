@@ -91,7 +91,12 @@ class RecordDict(BaseRecordDict):
             len(self.data["elements"])
             == self.data["nelements"]
             == len(self.data["pseudopotential"])
-        ), "nelements not match"
+        ), (
+            'nelements not match '
+            + f'{self.data["elements"]=} '
+            + f'{self.data["nelements"]=} '
+            + f'{self.data["pseudopotential"]=}'
+        )
         assert (
             self.data["natoms"]
             == self.data["positions"].shape[0]
@@ -256,10 +261,12 @@ class RecordDict(BaseRecordDict):
 
     @staticmethod
     def get_symmetry(atoms: Atoms, symprec):
+        # TODO: deprecated
         spg = get_spacegroup(atoms, symprec)
         return {"number": spg.no, "symbol": spg.symbol}
 
     def warpped_get_symmetry(self, atoms: Atoms):
+        # TODO: deprecated
         return {
             key: self.get_symmetry(atoms, symprec)
             for key, symprec in zip(["1e-1", "1e-2", "1e-5"], [1e-1, 1e-2, 1e-5])

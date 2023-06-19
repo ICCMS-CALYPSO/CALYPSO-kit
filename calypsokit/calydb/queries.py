@@ -1,3 +1,5 @@
+import logging
+
 from collections import UserDict
 from datetime import datetime
 from typing import Any, Optional
@@ -5,6 +7,9 @@ from typing import Any, Optional
 from ase import Atoms
 from bson import ObjectId
 from pymatgen.core.structure import Structure
+
+
+logger = logging.getLogger(__name__)
 
 
 class QueryStructure(UserDict):
@@ -167,8 +172,36 @@ class Pipes:
         return pipeline
 
     @staticmethod
-    def newer_records(newerdate):
-        pipeline = [{"$match": {"last_updated_utc": {"$gt": datetime(*newerdate)}}}]
+    def daterange_records(mindate=None, maxdate=None):
+        if mindate is None:
+            mindate = (1, 1, 1, 0, 0, 0)
+        if maxdate is None:
+            maxdate = (9999, 12, 31, 23, 59, 59)
+        pipeline = [
+            {
+                "$match": {
+                    "last_updated_utc": {
+                        "$gt": datetime(*mindate),
+                        "$lt": datetime(*maxdate),
+                    }
+                }
+            }
+        ]
+        return pipeline
+
+    @staticmethod
+    def get_edge_time(side):
+        if side == "max":
+            seq = -1
+        elif side == "min":
+            seq = 1
+        else:
+            raise ValueError("side must be 'max' or 'min'")
+        pipeline = [
+            {'$sort': {'last_updated_utc': seq}},
+            {'$limit': 1},
+            {'$project': {'last_updated_utc': 1}},
+        ]
         return pipeline
 
     @staticmethod
@@ -248,28 +281,36 @@ class Pipes:
         return pipeline
 
     @staticmethod
-    def unique_records(fromcol="rawcol"):
+    def unique_records(uniqcol="uniq"):
         pipeline = [
             {
-                '$lookup': {
-                    'from': f"{fromcol}",
-                    'localField': '_id',
-                    'foreignField': '_id',
-                    'as': 'matched_docs',
+                "$lookup": {
+                    "from": f"{uniqcol}",
+                    "localField": "_id",
+                    "foreignField": "_id",
+                    "as": "intersection",
                 }
             },
-            # No neet to Filter the documents with matches, cause unwind will not output
-            # empty list by default
-            # {'$match': {'matched_docs': {'$ne': []}}},
-            {"$unwind": "$matched_docs"},
+            {"$match": {"intersection": {"$ne": []}}},
+            {"$unwind": "$intersection"},
+        ]
+        return pipeline
+
+    @staticmethod
+    def check_duplicate():
+        pipeline = [
+            # {"$limit": 100},
             {
-                "$replaceRoot": {
-                    "newRoot": {
-                        "$mergeObjects": [{"version": "$version"}, "$matched_docs"]
-                    }
+                "$group": {
+                    "_id": {
+                        "file": {"$arrayElemAt": ["$trajectory.source_file", 0]},
+                        "idx": {"$arrayElemAt": ["$trajectory.source_idx", 0]},
+                    },
+                    "count": {"$sum": 1},
+                    "ids": {"$push": "$_id"},
                 }
             },
-            {"$match": {"deprecated": False}},
+            {"$match": {"count": {"$gt": 1}}},
         ]
         return pipeline
 
@@ -295,3 +336,27 @@ def get_current_caly_max_index(collection) -> int:
         return 0
     else:
         return cur[0]["source"]["index"]
+
+
+def get_edge_time(collection, side):
+    cursor = list(collection.aggregate(Pipes.get_newest_time(side)))
+    if len(cursor) == 0:
+        return (1, 1, 1, 0, 0, 0)
+    else:
+        t = cursor[0]["last_updated_utc"]
+        return (t.year, t.month, t.day, t.hour, t.minute, t.second)
+
+
+def check_duplicate(collection):
+    cur = list(collection.aggregate(Pipes.check_duplicate()))
+    for rec in cur:
+        str_ids = " ".join(map(str, rec["ids"]))
+        logger.info(f"{len(rec)} duplicates, _id list {str_ids}")
+    else:
+        logger.info("No duplicates")
+    return cur
+
+
+def delete_duplicates(collection):
+    cur = check_duplicate(collection)
+    collection.delete_many({"_id": {"$in": [rec["ids"][0] for rec in cur]}})

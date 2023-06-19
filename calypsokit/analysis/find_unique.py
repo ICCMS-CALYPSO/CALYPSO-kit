@@ -3,16 +3,20 @@
 # This file may need modification for more specific unique-finding method
 
 
+import logging
 from datetime import datetime
 from functools import lru_cache
 from itertools import chain
 
+import pymongo
 from joblib import Parallel, delayed
 from pymatgen.analysis.structure_matcher import StructureMatcher
 from tqdm import tqdm
 
 from calypsokit.calydb.login import login
 from calypsokit.calydb.queries import Pipes, QueryStructure
+
+logger = logging.getLogger(__name__)
 
 
 class UniqueFinder:
@@ -36,12 +40,12 @@ class UniqueFinder:
         >>> rawcol: rawcol
         >>> uniqcol: uniqcol
         >>> uniquefinder = UniqueFinder(rawcol, uniqcol)
-        >>> newerdate = (2023, 6, 8)
-        >>> uniquefinder.update(newerdate)
+        >>> mindate = (2023, 6, 8)
+        >>> uniquefinder.update(mindate, version="*")
 
         for debug
 
-        >>> for uniq_list in uniquefinder.check(newerdate):
+        >>> for uniq_list in uniquefinder.check(mindate):
         ...     print(uniq_list)
         [ObjectId('...'), ...]
 
@@ -61,7 +65,7 @@ class UniqueFinder:
         self.matcher = StructureMatcher(**match_kwargs)
 
     @lru_cache
-    def group(self, newerdate):
+    def group(self, mindate=None, maxdate=None):
         """get the group records list newer than `newerdate`
 
         Parameters
@@ -77,32 +81,33 @@ class UniqueFinder:
         # [task_formula_group, ...]
         cursor = list(
             self.rawcol.aggregate(
-                Pipes.newer_records(newerdate) + Pipes.group_task_formula()
+                Pipes.daterange_records(mindate, maxdate) + Pipes.group_task_formula()
             )
         )
         return cursor
 
-    def check(self, newerdate):
-        cursor = self.group(newerdate)
+    def check(self, mindate=None, maxdate=None):
+        cursor = self.group(mindate, maxdate)
         for cur in cursor:
             i_uniq_list = self.find_unique_in_group(cur)
             dup_one = self.uniqcol.find_one({"_id": {"$in": i_uniq_list}})
             if dup_one is not None:
-                print(f"Found one duplicated in {self.uniqcol} : {dup_one}")
-                print("Please try other newerdate")
+                logger.info(f"Found one duplicated in {self.uniqcol} : {dup_one}")
             yield i_uniq_list
 
-    def update(self, newerdate, *, version):
-        cursor = self.group(newerdate)
+    def update(
+        self, mindate=(1, 1, 1, 0, 0, 0), maxdate=(9999, 12, 31, 0, 0, 0), *, version
+    ):
+        cursor = self.group(mindate, maxdate)
         uniq_list = self.find_unique(cursor)
-        dup_one = self.uniqcol.find_one({"_id": {"$in": uniq_list}})
-        if dup_one is not None:
-            print(f"Found one duplicated in {self.uniqcol} : {dup_one}")
-            print("Please try other newerdate")
-        else:
+        try:
             self.uniqcol.insert_many(
-                [{"_id": uniq_id, "version": version} for uniq_id in uniq_list]
+                [{"_id": uniq_id, "version": version} for uniq_id in uniq_list],
+                ordered=False,
             )
+            logger.info("Documents inserted successfully.")
+        except pymongo.errors.DuplicateKeyError:
+            logger.info("Duplicate _id encountered. Skipped duplicate documents.")
 
     def find_unique(self, cursor):
         results = Parallel(backend="multiprocessing")(
@@ -124,10 +129,8 @@ class UniqueFinder:
         _type_
             _description_
         """
+        logger.log(19, f"Finding unique in {task_formula_group['_id']['task']}")
         ids = task_formula_group["ids"]
-        # task = record_task_formula["_id"]["task"]
-        # formula = record_task_formula["_id"]["formula"]
-        # print(task, formula, record_task_formula["count"])
         projection = {"symmetry.1e-1.number": 1, "enthalpy_per_atom": 1}
 
         qs = QueryStructure(self.rawcol, projection)
@@ -135,9 +138,11 @@ class UniqueFinder:
 
         unique_list = []  # _id
         for i_id in ids:
-            i_structure, i_properties = qs[i_id]
+            i_structure = qs[i_id]["_structure_"]
+            i_properties = qs[i_id]
             for j_id in unique_list:
-                j_structure, j_properties = qs[j_id]
+                j_structure = qs[j_id]["_structure_"]
+                j_properties = qs[j_id]
                 same_sym = (
                     i_properties["symmetry"]["1e-1"]["number"]
                     == j_properties["symmetry"]["1e-1"]["number"]
@@ -158,42 +163,33 @@ class UniqueFinder:
                     # do not match, add
                     else:
                         unique_list.append(i_id)
-                        # print(i_properties["enthalpy_per_atom"])
                         break
                 # otherwise treat as a different one
             # do not match to any one, add
             else:
                 unique_list.append(i_id)
-        # result energy list
-        # print(sorted([qs[_id][1]["enthalpy_per_atom"] for _id in unique_list]))
         return unique_list
+
+    def maintain_deprecated(self):
+        """delete the deprecated records in uniqcol"""
+        pipeline = [{"$match": {"deprecated": True}}]
+        pipeline += Pipes.unique_records(self.uniqcol.name)
+        pipeline += [{"$group": {"_id": None, "ids": {"$push": "$_id"}}}]
+        for record in self.rawcol.aggregate(pipeline):
+            logger.info(f"Found {len(record['ids'])} records are deprecated.")
+            self.uniqcol.delete_many({"_id": {"$in": record["ids"]}})
+            logger.info(f"Deleted from {self.uniqcol.name}")
+        logger.info("Finished maintain")
 
 
 if __name__ == '__main__':
+    pass
     # ---------------------------------------------------------------
     # Uncomment the following to run find unique
-    # pipeline = pipe_group_task_formula()
-    # # pipline.append({"$match": {"count": {"$lt": 20}}})
-    # # pipline.append({"$limit": 3})
     # db = login()
-    # col = db.get_collection("rawcol")
-    # cur = list(col.aggregate(pipeline))
-    # results = Parallel(backend="multiprocessing")(
-    #     delayed(find_unique)(record_task_formula) for record_task_formula in tqdm(cur)
-    # )
-    # unique_list = list(chain.from_iterable(results))
+    # raw = db.get_collection("raw")
+    # uniq = db.get_collection("uniq")
+    # uniquefinder = UniqueFinder(raw, uniq)
+    # newerdate = (2023, 6, 1)
+    # uniquefinder.update(newerdate, version=20230616)
     # ---------------------------------------------------------------
-
-    import pickle
-
-    # with open("unique.pkl", "rb") as f:
-    #     unique_list = pickle.load(f)
-    # # print(unique_list)
-    # db = login(dotenv_path=".env-maintain")
-    # uniqcol = db.get_collection("uniqcol")
-    # uniqcol.insert_many(
-    #     [{"_id": uniq_id, "version": 20230601} for uniq_id in unique_list]
-    # )
-    #
-    # data = {"unique_ids": unique_list, "last_updated_utc": datetime.utcnow()}
-    # uniqcol.insert_one(data)

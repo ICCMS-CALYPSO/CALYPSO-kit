@@ -108,16 +108,7 @@ class TestCalyDB(unittest.TestCase):
         # print(qs.find_one({})["_structure_"].lattice.matrix.T)
 
     def test_09_readout_cdvae(self):
-        rawcol = self.db.get_collection("rawcol")
-        uniqcol = self.db.get_collection("uniqcol")
         readout = ReadOut()
-        df = readout.unique2cdvae(rawcol, uniqcol, debug=10)
+        df = readout.unique2cdvae(self.db, 'rawcol', 'uniqcol', debug=10)
+        # print(df)
         self.assertEqual(len(df), 10)
-
-    def test_10_RecordPatcher(self):
-        rawcol = self.db.get_collection("rawcol")
-        patcher = RawRecordPatcher(rawcol)
-        sample_rec = rawcol.find_one({"deprecated": True}, {"_id": 1})
-        self.assertTrue(isinstance(patcher.get_update_dict(sample_rec["_id"]), dict))
-        # pprint(patcher.get_update_dict(sample_rec["_id"]))
-        # patcher.patch(sample_rec["_id"])

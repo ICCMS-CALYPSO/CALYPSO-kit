@@ -12,13 +12,16 @@ build-backend = "setuptools.build_meta"
     ]
     dependencies = [
         "ase",
+        "click",
         "joblib",
         "numpy",
         "pandas",
         "pyarrow",
+        "pymatgen",
         "pymongo>=4",
         "python-dotenv",
         "spglib",
+        "tqdm",
     ]
     requires-python = ">=3.9"
     readme = "README.md"
@@ -48,6 +51,7 @@ build-backend = "setuptools.build_meta"
     # documentation = ""
 
 [project.scripts]
+    cak = "calypsokit.cli:main"
 
 [tool.setuptools]
     packages = ["calypsokit"]
