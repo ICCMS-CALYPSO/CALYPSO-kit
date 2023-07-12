@@ -53,6 +53,30 @@ def get_density_clospack_density(
     return density, volume, clospack_density, clospack_volume
 
 
+def get_atoms_number_of_structure(structure: Union[Atoms, Structure]):
+    """given structure and return the number of atoms
+
+    Parameters
+    ----------
+    structure : Structure
+        Atoms : ase Atoms object
+        Structure : pymatgen Structure object
+
+    Returns
+    -------
+    number_of_atoms : int
+    """
+
+    if isinstance(structure, Atoms):
+        natoms = len(structure)
+    elif isinstance(structure, Structure):
+        natoms = structure.composition.num_atoms
+    else:
+        raise ValueError(f"Unknown type of {structure=}")
+
+    return natoms
+
+
 def get_formula(species: list[str]) -> tuple[str, str]:
     """Given atom symbol list, return formula and reduced formula in "metal" format
 
@@ -160,7 +184,21 @@ def get_crystal_system(n: int) -> str:
         raise ValueError(f"Invalid space group number: {n}")
 
 
-def get_symmetry(atoms: Atoms, symprec):
+def get_symmetry(atoms: Atoms, symprec=0.01):
+    """given atoms and symprec, return a dictory containing 
+    spacegroup number, spacegroup symbol and crystal system
+
+    Parameters
+    ----------
+    atoms : Atoms
+        Atoms object
+    symprec : np.float
+        default: 0.1, 
+
+    Returns
+    -------
+    {spacegroup_number, spacegroup_symbol, crystal_system}
+    """
     spg = get_spacegroup(atoms, symprec)
     return {
         "number": spg.no,
@@ -170,6 +208,19 @@ def get_symmetry(atoms: Atoms, symprec):
 
 
 def wrapped_get_symmetry(atoms: Atoms):
+    """wrap the `get_symmetry` and return symmetry[1e-1, 1e-2, 1e-5]
+
+    Parameters
+    ----------
+    atoms : Atoms
+        Atoms object
+
+    Returns
+    -------
+    dict[str, dict]
+        {"1e-1": {...}, "1e-2": {...}, "1e-5": {...}}, the value is
+        same as the return value of `get_symmetry`
+    """
     return {
         key: get_symmetry(atoms, symprec)
         for key, symprec in zip(["1e-1", "1e-2", "1e-5"], [1e-1, 1e-2, 1e-5])
@@ -177,6 +228,20 @@ def wrapped_get_symmetry(atoms: Atoms):
 
 
 def wrapped_get_symmetry_from_datadict(datadict):
+    """given a datadict[species, cell, scaled_positions] and 
+       return symmetry[1e-1, 1e-2, 1e-5]
+
+    Parameters
+    ----------
+    datadict : dict
+      keys: species, cell, scaled_positions
+
+    Returns
+    -------
+    dict[str, dict]
+        {"1e-1": {...}, "1e-2": {...}, "1e-5": {...}}, the value is
+        same as the return value of `get_symmetry`
+    """
     species = datadict["species"]
     cell = datadict["cell"]
     scaled_positions = datadict["scaled_positions"]
@@ -185,6 +250,19 @@ def wrapped_get_symmetry_from_datadict(datadict):
 
 
 def get_min_distance(structure: Union[Atoms, Structure]):
+    """calculate min dis of given strucutre and
+       consider the image atom distance (min(a, b, c)) and PBC min distance
+
+    Parameters
+    ----------
+    structure : Union[Atoms, Structure]
+       Atoms: ase Atoms object
+       Structure: pymatgen Structure object
+
+    Returns
+    -------
+    min distance : np.float
+    """
     if isinstance(structure, Atoms):
         distmat = structure.get_all_distances(mic=True)
         selfmin = min(structure.cell.cellpar()[:3])
@@ -232,12 +310,30 @@ def kabsch(P, Q):
 
 
 def get_kabsch_info(celli, cellr):
+    """Calculate two cell matrix distance using 
+    or not using the Kabsch algorithm.
+
+    Parameters
+    ----------
+    celli, cellr : ndarray
+        3x3 matrix of ini or relaxed cell.
+
+    Returns:
+    --------
+    kabsh_info : dict[kabsh_rot,
+                      max_d_cell_i_r,
+                      avg_d_cell_i_r, 
+                      max_d_cell_roti_r,
+                      avg_d_cell_roti_r]
+    """
+
     kabsch_rot = kabsch(celli, cellr)
     max_d_cell_i_r = np.max(np.abs(celli - cellr))
     avg_d_cell_i_r = np.mean(np.abs(celli - cellr))
     cellirot = np.matmul(celli, kabsch_rot)
     max_d_cell_roti_r = np.max(np.abs(cellirot - cellr))
     avg_d_cell_roti_r = np.mean(np.abs(cellirot - cellr))
+
     return {
         "kabsch_rot": kabsch_rot,
         "max_d_cell_i_r": max_d_cell_i_r,
@@ -248,9 +344,24 @@ def get_kabsch_info(celli, cellr):
 
 
 def get_shifted_d_frac(fraci, fracr):
+    """Calculate distance of two frac coordinate 
+
+    Parameters
+    ----------
+    fraci, fracr : ndarray
+        nx3 matrix of ini or relaxed coordinates.
+
+    Returns:
+    --------
+    shifted_d_frac : dict[shifted_d_frac,
+                          max_shifted_d_frac,
+                          avg_shifted_d_frac]
+    """
+
     shifted_d_frac = (fracr - fraci + 0.5) % 1 - 0.5
     max_shifted_d_frac = np.max(np.abs(shifted_d_frac))
     avg_shifted_d_frac = np.mean(np.abs(shifted_d_frac))
+
     return {
         "shifted_d_frac": shifted_d_frac,
         "max_shifted_d_frac": max_shifted_d_frac,
@@ -313,6 +424,17 @@ crystalnn = CrystalNN()
 
 
 def get_dim_larsen(structure: Structure):
+    """calculate dimension of given structure
+
+    Parameters
+    ----------
+    structure : Structure
+
+    Returns
+    -------
+    dim_larsen : np.int
+    """
+
     try:
         bonded_structure = crystalnn.get_bonded_structure(structure)
         dim_larsen = int(get_dimensionality_larsen(bonded_structure))
@@ -322,6 +444,17 @@ def get_dim_larsen(structure: Structure):
 
 
 def get_cif_str(structure):
+    """given structure and return the string of cif
+
+    Parameters
+    ----------
+    structure : Structure
+
+    Returns
+    -------
+    cif : string
+    """
+
     if isinstance(structure, Atoms):
         with io.BytesIO() as buffer, redirect_stdout(buffer):  # type: ignore [type-var]
             write('-', structure, format='cif')
@@ -330,10 +463,22 @@ def get_cif_str(structure):
         cif = str(CifWriter(structure).ciffile)
     else:
         raise ValueError(f"Unknown type of {structure=}")
+
     return cif
 
 
-def get_poscar_str(structure):
+def get_poscar_str(structure: Union[Atoms, Structure]):
+    """given structure and return the string of poscar
+
+    Parameters
+    ----------
+    structure : Structure
+
+    Returns
+    -------
+    cif : string
+    """
+
     if isinstance(structure, Atoms):
         with io.StringIO() as buffer, redirect_stdout(buffer):
             write('-', structure, format='vasp', direct=True)
@@ -343,3 +488,33 @@ def get_poscar_str(structure):
     else:
         raise ValueError(f"Unknown type of {structure=}")
     return vasp
+
+
+def get_min_dis_of_diff_elems(atoms, type_map):
+    '''
+    type_map=['Li','La','H']
+    return: min dis of different type bonds including
+             `Li-La`, `Li-H`, `La-H`, `Li-Li`, `La-La`, `H-H`
+    '''
+    diff_bond_type = list(map(list, combinations(type_map, 2)))
+    diff_bond_type.extend([[same_type,same_type] for same_type in type_map])
+
+    atoms_number = atoms.symbols.formula.count().values()
+    if 1 in atoms_number:
+        atoms = make_supercell(atoms, [[2, 0, 0], [0, 2, 0], [0, 0, 2]])
+
+    bond_situation = {}
+    for each_type in diff_bond_type:
+        bond_situation_key = ''.join(each_type)
+        ana = Analysis(atoms)
+        bond_indice = ana.get_bonds(each_type[0], each_type[1], unique=True)
+        if bond_indice == [[]]:
+            min_dis = np.array(203)
+            #min_dis = np.nan
+        else:
+            bond_value = ana.get_values(bond_indice)
+            min_dis = np.nanmin(bond_value[0])
+        bond_situation[bond_situation_key] = min_dis
+
+    return bond_situation
+
